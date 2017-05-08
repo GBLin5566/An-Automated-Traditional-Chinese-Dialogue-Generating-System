@@ -12,10 +12,10 @@ from torch.autograd import Variable
 
 import model
 
-learning_rate = 0.0001
-encoder = model.EncoderRNN(10, 20, 2, 1)
-context = model.ContextRNN(2*20, 10, 2, 1)
-decoder = model.DecoderRNN(10, 20, 10, 2, 1)
+learning_rate = 0.001
+encoder = model.EncoderRNN(10, 100, 2, 1)
+context = model.ContextRNN(2*100, 100, 2, 1)
+decoder = model.DecoderRNN(100, 200, 10, 2, 1)
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
 context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
@@ -23,6 +23,12 @@ criterion = nn.NLLLoss()
 
 parser = argparse.ArgumentParser(description=\
         'Pytorch Traditional Chinese Dialouge Generating System builded on Hierarchical RNN.')
+
+def check_cuda_for_var(var):
+    if torch.cuda.is_available():
+        return var.cuda()
+    else:
+        return var
 
 def train():
     # Zero gradients
@@ -33,21 +39,24 @@ def train():
 
     context_hidden = context.init_hidden()
 
-    talk_history = [[0,3,2,5,1,5],[0,8,6,4],[0,9,4,2,5,1,2],[0,3,6,2,6,8,6,9],[0,3,1,1,1],[0,4,5,3]]
+    talk_history = [[0,3,2,5,1,5,9],[0,8,6,4,9],[0,4,2,5,1,2,9],[0,3,6,2,6,8,6,9],[0,3,1,1,1,9],[0,4,5,3,9]]
     predict_count = 0
 
     for index, sentence in enumerate(talk_history):
         if index == len(talk_history) - 1:
             break
         decoder_input = Variable(torch.LongTensor([[0]]))
+        decoder_input = check_cuda_for_var(decoder_input)
         encoder_hidden = encoder.init_hidden()
         decoder_hidden = decoder.init_hidden()
         sentence_variable = Variable(torch.LongTensor(sentence))
+        sentence_variable = check_cuda_for_var(sentence_variable)
         for ei in range(len(sentence)):
             _, encoder_hidden = encoder(sentence_variable[ei], encoder_hidden)
         encoder_hidden = torch.cat(encoder_hidden, 1).unsqueeze(0)
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence_variable = Variable(torch.LongTensor(talk_history[index+1]))
+        next_sentence_variable = check_cuda_for_var(next_sentence_variable)
         for di in range(len(talk_history[index+1])):
             decoder_output, decoder_hidden = decoder(context_output, decoder_hidden)
             loss += criterion(decoder_output[0], next_sentence_variable[di])
