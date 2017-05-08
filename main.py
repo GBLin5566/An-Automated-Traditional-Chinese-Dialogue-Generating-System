@@ -16,6 +16,10 @@ learning_rate = 0.001
 encoder = model.EncoderRNN(10, 100, 2, 1)
 context = model.ContextRNN(2*100, 100, 2, 1)
 decoder = model.DecoderRNN(100, 200, 10, 2, 1)
+if torch.cuda.is_available():
+    encoder = encoder.cuda()
+    context = context.cuda()
+    decoder = decoder.cuda()
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
 context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
@@ -36,6 +40,7 @@ def train():
     context_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
     loss = Variable(torch.FloatTensor(1))
+    loss = check_cuda_for_var(loss)
 
     context_hidden = context.init_hidden()
 
@@ -70,6 +75,7 @@ def train():
     encoder_optimizer.step()
     context_optimizer.step()
     decoder_optimizer.step()
+    print(loss)
 
     return loss.data[0] / (predict_count)
 

@@ -19,12 +19,12 @@ class EncoderRNN(nn.Module):
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
 
-        self.cuda = torch.cuda.is_available()
+        self.is_cuda = torch.cuda.is_available()
         self.init_weight()
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
-        if self.cuda:
+        if self.is_cuda:
             hidden = hidden.cuda()
         return hidden
 
@@ -48,11 +48,11 @@ class ContextRNN(nn.Module):
 
         self.gru = nn.GRU(encoder_hidden_size, hidden_size, n_layers, dropout=dropout)
         
-        self.cuda = torch.cuda.is_available()
+        self.is_cuda = torch.cuda.is_available()
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
-        if self.cuda:
+        if self.is_cuda:
             hidden = hidden.cuda()
         return hidden
 
@@ -74,12 +74,12 @@ class DecoderRNN(nn.Module):
         self.out = nn.Linear(hidden_size, output_size)
         self.gru = nn.GRU(context_output_size, hidden_size, n_layers, dropout=dropout)
 
-        self.cuda = torch.cuda.is_available()
+        self.is_cuda = torch.cuda.is_available()
         self.init_weight()
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
-        if self.cuda:
+        if self.is_cuda:
             hidden = hidden.cuda()
         return hidden
 
