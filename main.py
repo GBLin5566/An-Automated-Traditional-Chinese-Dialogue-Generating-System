@@ -4,6 +4,7 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import time
 
 import torch
 from torch import optim
@@ -40,6 +41,7 @@ def train():
     context_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
     loss = Variable(torch.FloatTensor(1))
+    nn.init.constant(loss, 0)
     loss = check_cuda_for_var(loss)
 
     context_hidden = context.init_hidden()
@@ -75,11 +77,12 @@ def train():
     encoder_optimizer.step()
     context_optimizer.step()
     decoder_optimizer.step()
-    print(loss)
 
     return loss.data[0] / (predict_count)
 
+since = time.time()
 for epoch in range(1, 7001):
     training_loss = train()
-    if epoch % 10  == 0:
-        print("# ", epoch, " loss: ", training_loss)
+    if epoch % 100  == 0:
+        print("# ", epoch, " | ", time.time() - since," seconds | loss: ", training_loss)
+        since = time.time()
