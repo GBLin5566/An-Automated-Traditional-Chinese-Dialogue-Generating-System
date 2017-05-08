@@ -4,13 +4,67 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import time
-import math
 
 import torch
+from torch import optim
 import torch.nn as nn
 from torch.autograd import Variable
+
+import model
+
+learning_rate = 0.0001
+encoder = model.EncoderRNN(10, 20, 2, 1)
+context = model.ContextRNN(2*20, 10, 2, 1)
+decoder = model.DecoderRNN(10, 20, 10, 2, 1)
+encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
+decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+criterion = nn.NLLLoss()
 
 parser = argparse.ArgumentParser(description=\
         'Pytorch Traditional Chinese Dialouge Generating System builded on Hierarchical RNN.')
 
+def train():
+    # Zero gradients
+    encoder_optimizer.zero_grad()
+    context_optimizer.zero_grad()
+    decoder_optimizer.zero_grad()
+    loss = Variable(torch.FloatTensor(1))
+
+    context_hidden = context.init_hidden()
+
+    talk_history = [[0,3,2,5,1,5],[0,8,6,4],[0,9,4,2,5,1,2],[0,3,6,2,6,8,6,9],[0,3,1,1,1],[0,4,5,3]]
+    predict_count = 0
+
+    for index, sentence in enumerate(talk_history):
+        if index == len(talk_history) - 1:
+            break
+        decoder_input = Variable(torch.LongTensor([[0]]))
+        encoder_hidden = encoder.init_hidden()
+        decoder_hidden = decoder.init_hidden()
+        sentence_variable = Variable(torch.LongTensor(sentence))
+        for ei in range(len(sentence)):
+            _, encoder_hidden = encoder(sentence_variable[ei], encoder_hidden)
+        encoder_hidden = torch.cat(encoder_hidden, 1).unsqueeze(0)
+        context_output, context_hidden = context(encoder_hidden, context_hidden)
+        next_sentence_variable = Variable(torch.LongTensor(talk_history[index+1]))
+        for di in range(len(talk_history[index+1])):
+            decoder_output, decoder_hidden = decoder(context_output, decoder_hidden)
+            loss += criterion(decoder_output[0], next_sentence_variable[di])
+            decoder_input = next_sentence_variable[di]
+            predict_count += 1
+
+    loss.backward()
+    torch.nn.utils.clip_grad_norm(encoder.parameters(), 5.0)
+    torch.nn.utils.clip_grad_norm(context.parameters(), 5.0)
+    torch.nn.utils.clip_grad_norm(decoder.parameters(), 5.0)
+    encoder_optimizer.step()
+    context_optimizer.step()
+    decoder_optimizer.step()
+
+    return loss.data[0] / (predict_count)
+
+for epoch in range(1, 7001):
+    training_loss = train()
+    if epoch % 10  == 0:
+        print("# ", epoch, " loss: ", training_loss)

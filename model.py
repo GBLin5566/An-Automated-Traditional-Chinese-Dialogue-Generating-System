@@ -5,6 +5,8 @@ import torch.nn.functional as F
 import torch.cuda
 from torch.autograd import Variable
 
+# TODO
+# Init. GRU with orthogonal initializer.
 class EncoderRNN(nn.Module):
     """Encoder RNN Building"""
     def __init__(self, input_size, hidden_size, n_layers, dropout):
@@ -44,11 +46,9 @@ class ContextRNN(nn.Module):
         self.hidden_size = hidden_size
         self.n_layers = n_layers
 
-        self.mapping = nn.Linear(encoder_hidden_size, hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
+        self.gru = nn.GRU(encoder_hidden_size, hidden_size, n_layers, dropout=dropout)
         
         self.cuda = torch.cuda.is_available()
-        self.init_weight()
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
@@ -56,24 +56,23 @@ class ContextRNN(nn.Module):
             hidden = hidden.cuda()
         return hidden
 
-    def init_weight(self):
-        init.orthogonal(self.mapping.weight.data)
-
     def forward(self, input, hidden):
-        mapping = self.mapping(input)
-        output, hidden = self.gru(mapping, hidden)
+        output, hidden = self.gru(input, hidden)
         return output, hidden
 
 
 class DecoderRNN(nn.Module):
     """Decoder RNN Building"""
-    def __init__(self, hidden_size, output_size, n_layers, dropout):
+    def __init__(self, context_output_size, hidden_size, output_size, n_layers, dropout):
         super(DecoderRNN, self).__init__()
 
+        self.context_output_size = context_output_size
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.n_layers = n_layers
+        
         self.out = nn.Linear(hidden_size, output_size)
+        self.gru = nn.GRU(context_output_size, hidden_size, n_layers, dropout=dropout)
 
         self.cuda = torch.cuda.is_available()
         self.init_weight()
@@ -89,5 +88,5 @@ class DecoderRNN(nn.Module):
 
     def forward(self, input, hidden):
         output, hidden = self.gru(input, hidden)
-        output = F.log_softmax(self.out(output))
+        output = F.log_softmax(self.out(output[0]))
         return output, hidden
