@@ -14,9 +14,9 @@ from torch.autograd import Variable
 import model
 
 learning_rate = 0.001
-encoder = model.EncoderRNN(10, 100, 2, 1)
-context = model.ContextRNN(2*100, 100, 2, 1)
-decoder = model.DecoderRNN(100, 200, 10, 2, 1)
+encoder = model.EncoderRNN(10, 1000, 2, 1)
+context = model.ContextRNN(2*1000, 2000, 2, 1)
+decoder = model.DecoderRNN(2000, 500, 10, 2, 1)
 if torch.cuda.is_available():
     encoder = encoder.cuda()
     context = context.cuda()
@@ -60,14 +60,15 @@ def train():
         sentence_variable = check_cuda_for_var(sentence_variable)
         for ei in range(len(sentence)):
             _, encoder_hidden = encoder(sentence_variable[ei], encoder_hidden)
-        encoder_hidden = torch.cat(encoder_hidden, 1).unsqueeze(0)
+        encoder_hidden = encoder_hidden.view(1, 1, -1)
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence_variable = Variable(torch.LongTensor(talk_history[index+1]))
         next_sentence_variable = check_cuda_for_var(next_sentence_variable)
         for di in range(len(talk_history[index+1])):
-            decoder_output, decoder_hidden = decoder(context_output, decoder_hidden)
+            decoder_output, decoder_hidden = decoder(context_output,\
+                    decoder_input, decoder_hidden)
             loss += criterion(decoder_output[0], next_sentence_variable[di])
-            decoder_input = next_sentence_variable[di]
+            decoder_input = next_sentence_variable[di].unsqueeze(1)
             predict_count += 1
 
     loss.backward()
@@ -83,6 +84,6 @@ def train():
 since = time.time()
 for epoch in range(1, 7001):
     training_loss = train()
-    if epoch % 100  == 0:
+    if epoch % 10  == 0:
         print("# ", epoch, " | ", time.time() - since," seconds | loss: ", training_loss)
         since = time.time()

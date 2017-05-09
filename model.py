@@ -70,9 +70,10 @@ class DecoderRNN(nn.Module):
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.n_layers = n_layers
+        self.embedding = nn.Embedding(output_size, hidden_size)
         
         self.out = nn.Linear(hidden_size, output_size)
-        self.gru = nn.GRU(context_output_size, hidden_size, n_layers, dropout=dropout)
+        self.gru = nn.GRU(context_output_size + hidden_size, hidden_size, n_layers, dropout=dropout)
 
         self.is_cuda = torch.cuda.is_available()
         self.init_weight()
@@ -86,7 +87,8 @@ class DecoderRNN(nn.Module):
     def init_weight(self):
         init.orthogonal(self.out.weight.data)
 
-    def forward(self, input, hidden):
-        output, hidden = self.gru(input, hidden)
+    def forward(self, context_output, input, hidden):
+        input_cat = torch.cat([context_output, self.embedding(input)], 2)
+        output, hidden = self.gru(input_cat, hidden)
         output = F.log_softmax(self.out(output[0]))
         return output, hidden
