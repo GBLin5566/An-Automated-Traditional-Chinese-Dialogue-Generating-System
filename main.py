@@ -13,10 +13,10 @@ from torch.autograd import Variable
 
 import model
 
-learning_rate = 0.001
+learning_rate = 0.01
 encoder = model.EncoderRNN(10, 1000, 2, 1)
 context = model.ContextRNN(2*1000, 2000, 2, 1)
-decoder = model.DecoderRNN(2000, 500, 10, 2, 1)
+decoder = model.DecoderRNN(2*2000, 500, 10, 2, 1)
 if torch.cuda.is_available():
     encoder = encoder.cuda()
     context = context.cuda()
@@ -65,7 +65,7 @@ def train():
         next_sentence_variable = Variable(torch.LongTensor(talk_history[index+1]))
         next_sentence_variable = check_cuda_for_var(next_sentence_variable)
         for di in range(len(talk_history[index+1])):
-            decoder_output, decoder_hidden = decoder(context_output,\
+            decoder_output, decoder_hidden = decoder(context_hidden,\
                     decoder_input, decoder_hidden)
             loss += criterion(decoder_output[0], next_sentence_variable[di])
             decoder_input = next_sentence_variable[di].unsqueeze(1)

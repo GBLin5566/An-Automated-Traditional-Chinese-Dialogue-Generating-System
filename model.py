@@ -88,6 +88,7 @@ class DecoderRNN(nn.Module):
         init.orthogonal(self.out.weight.data)
 
     def forward(self, context_output, input, hidden):
+        context_output = context_output.view(1, 1, -1)
         input_cat = torch.cat([context_output, self.embedding(input)], 2)
         output, hidden = self.gru(input_cat, hidden)
         output = F.log_softmax(self.out(output[0]))
