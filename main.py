@@ -10,6 +10,7 @@ import time
 import os
 import sys
 import random
+import math
 
 import torch
 from torch import optim
@@ -214,8 +215,8 @@ for epoch in range(1, args.epochs + 1):
             teacher_forcing_ratio *= 0.99999
             training_loss += train(dialog)
             if (index + 1) % 25 == 0:
-                print("    @ Iter [", index + 1, "/", len(training_data),"] | loss: ", training_loss / (index + 1), \
-                        " | usage ", time.time() - iter_since, " seconds")
+                print("    @ Iter [", index + 1, "/", len(training_data),"] | avg. loss: ", training_loss / (index + 1), \
+                        " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds")
                 iter_since = time.time()
                 if training_loss / (index + 1) < best_training_loss:
                     best_training_loss = training_loss / (index + 1)
