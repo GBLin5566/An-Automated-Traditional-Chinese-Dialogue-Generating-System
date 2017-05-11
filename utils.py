@@ -30,10 +30,13 @@ class Lang:
     def prune_dict(self, threshold=2):
         print("Before prune dict size ", len(self.word2index))
         prune_num = 0
+        to_be_pruned = []
         for key in self.word2index.keys():
             if key in self.word2count and self.word2count[key] < threshold:
-                del self.word2index[key]
+                to_be_pruned.append(key)
                 prune_num += 1
+        for prune_key in to_be_pruned:
+            del self.word2index[prune_key]
         print("Prune ", prune_num, " words")
         print("After prune dict size ", len(self.word2index))
 

@@ -3,10 +3,13 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from builtins import range
 
 import argparse
 import time
 import os
+import sys
+import random
 
 import torch
 from torch import optim
@@ -21,6 +24,8 @@ parser = argparse.ArgumentParser(description=\
 
 parser.add_argument('--data', type=str,
         help='location of the data corpus(json file)')
+parser.add_argument('--validation_p', type=float, default=0.1,
+        help='percentage of validation data / all data')
 parser.add_argument('--embedsize', type=int, default=200,
         help='size of word embeddings')
 parser.add_argument('--encoder_hidden', type=int, default=200,
@@ -35,13 +40,13 @@ parser.add_argument('--context_layer', type=int, default=2,
         help='number of layers in context')
 parser.add_argument('--decoder_layer', type=int, default=2,
         help='number of layers in decoder')
-parser.add_argument('--lr', type=float, default=0.001,
+parser.add_argument('--lr', type=float, default=0.005,
         help='initial learning rate')
 parser.add_argument('--clip', type=float, default=5.0,
         help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
         help='upper epoch limit')
-parser.add_argument('--dropout', type=float, default=0.2,
+parser.add_argument('--dropout', type=float, default=0.25,
         help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--seed', type=int, default=5566,
         help='random seed')
@@ -51,6 +56,7 @@ parser.add_argument('--save', type=str, default='model/',
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
+random.seed(args.seed)
 
 def check_cuda_for_var(var):
     if torch.cuda.is_available():
@@ -62,6 +68,7 @@ def check_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+check_directory(args.save)
 # Read data
 my_lang, document_list = utils.build_lang(args.data)
 
@@ -81,6 +88,7 @@ context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
 criterion = nn.NLLLoss()
 
+
 def train(training_data):
     # Zero gradients
     encoder_optimizer.zero_grad()
@@ -94,6 +102,8 @@ def train(training_data):
 
     predict_count = 0
 
+    model_predict = []
+
     for index, sentence in enumerate(training_data):
         if index == len(training_data) - 1:
             break
@@ -102,16 +112,34 @@ def train(training_data):
         encoder_hidden = encoder.init_hidden()
         decoder_hidden = decoder.init_hidden()
         for ei in range(len(sentence)):
-            _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+            if ei > len(model_predict) - 1 or random.random() < teacher_forcing_ratio:
+                _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+            else:
+                _, encoder_hidden = encoder(model_predict[ei], encoder_hidden)
+
         encoder_hidden = encoder_hidden.view(1, 1, -1)
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = training_data[index+1]
+        model_predict = []
         for di in range(len(next_sentence)):
+            predict_count += 1
             decoder_output, decoder_hidden = decoder(context_hidden,\
                     decoder_input, decoder_hidden)
             loss += criterion(decoder_output[0], next_sentence[di])
-            decoder_input = next_sentence[di].unsqueeze(1)
-            predict_count += 1
+            # Scheduled Sampling
+            _, topi = decoder_output.data.topk(1)
+            ni = topi[0][0]
+            ni_var = Variable(torch.LongTensor([[ni]]))
+            if torch.cuda.is_available():
+                ni_var = ni_var.cuda()
+            model_predict.append(ni_var)
+            if random.random() < teacher_forcing_ratio:
+                decoder_input = next_sentence[di].unsqueeze(1)
+            else:
+                if ni == 1: # EOS
+                    break
+                decoder_input = ni_var
+
 
     loss.backward()
     torch.nn.utils.clip_grad_norm(encoder.parameters(), args.clip)
@@ -123,16 +151,104 @@ def train(training_data):
 
     return loss.data[0] / (predict_count)
 
+def validation(validation_data):
+    validation_loss = 0
+    for dialog in validation_data:
+        
+        context_hidden = context.init_hidden()
+        
+        predict_count = 0
+
+        loss = 0
+
+        for index, sentence in enumerate(dialog):
+            if index == len(dialog) - 1:
+                break
+            decoder_input = Variable(torch.LongTensor([[0]]))
+            decoder_input = check_cuda_for_var(decoder_input)
+            encoder_hidden = encoder.init_hidden()
+            decoder_hidden = decoder.init_hidden()
+            for ei in range(len(sentence)):
+                _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+            encoder_hidden = encoder_hidden.view(1, 1, -1)
+            context_output, context_hidden = context(encoder_hidden, context_hidden)
+            next_sentence = dialog[index+1]
+            for di in range(len(next_sentence)):
+                decoder_output, decoder_hidden = decoder(context_hidden,\
+                        decoder_input, decoder_hidden)
+                loss += criterion(decoder_output[0], next_sentence[di])
+                # TODO Greedy alg. now, maybe use beam search when inferencing in the future
+                _, topi = decoder_output.data.topk(1)
+                ni = topi[0][0]
+                if ni == 1: # EOS
+                    break
+                decoder_input = Variable(torch.LongTensor([[ni]]))
+                if torch.cuda.is_available():
+                    decoder_input = decoder_input.cuda()
+                predict_count += 1
+
+        validation_loss += (loss.data[0] / predict_count)
+
+    return validation_loss / len(validation_data)
+
 since = time.time()
+random.shuffle(document_list)
+cut = int(len(document_list) * args.validation_p)
+training_data, validation_data = \
+        document_list[cut:], document_list[:cut]
+
+best_validation_score = 10000
+best_training_loss = 10000
+patient = 3
+model_number = 0
+teacher_forcing_ratio = 1.
 for epoch in range(1, args.epochs + 1):
     training_loss = 0
     iter_since = time.time()
-    for index, dialog in enumerate(document_list):
-        training_loss += train(dialog)
-        if (index + 1) % 10 == 0:
-            print("    @ Iter [", index + 1, "/", len(document_list),"] | loss: ", training_loss / (index + 1), \
-                    " | usage ", time.time() - iter_since, " seconds")
-            iter_since = time.time()
-    if epoch % 10  == 0:
-        print("# ", epoch, " | ", time.time() - since," seconds | loss: ", training_loss)
+    try:
+        for index, dialog in enumerate(training_data):
+            teacher_forcing_ratio *= 0.99999
+            training_loss += train(dialog)
+            if (index + 1) % 25 == 0:
+                print("    @ Iter [", index + 1, "/", len(training_data),"] | loss: ", training_loss / (index + 1), \
+                        " | usage ", time.time() - iter_since, " seconds")
+                iter_since = time.time()
+                if training_loss / (index + 1) < best_training_loss:
+                    best_training_loss = training_loss / (index + 1)
+                    patient = 3
+                elif patient > 0:
+                    patient -= 1
+                else:
+                    print("****Learining rate decay****")
+                    learning_rate /= 2.
+                    patient = 3
+            if (index + 1) % 10000 == 0:
+                validation_score_100 = validation(validation_data[:100])
+                with open(os.path.join(args.save, "val_" + str(index+1) + ".txt"), "w") as f:
+                    f.write(str(validation_score_100))
+
+        validation_score = validation(validation_data)
+        print("# ", epoch, " | ", time.time() - since," seconds | validation loss: ", validation_score)
         since = time.time()
+        if best_validation_score > validation_score:
+            model_number += 1
+            print("Saving better model number ",model_number)
+            best_validation_score = validation_score
+            with open(os.path.join(args.save, "encoder" + str(model_number) + ".model"), 'wb') as f:
+                torch.save(encoder, f)
+            with open(os.path.join(args.save, "context" + str(model_number) + ".model"), 'wb') as f:
+                torch.save(context, f)
+            with open(os.path.join(args.save, "decoder" + str(model_number) + ".model"), 'wb') as f:
+                torch.save(decoder, f)
+    except:
+        print(sys.exc_info())
+        model_number += 1
+        print("Get stopped, saving the latest model")
+        with open(os.path.join(args.save, "encoder" + str(model_number) + ".model"), 'wb') as f:
+            torch.save(encoder, f)
+        with open(os.path.join(args.save, "context" + str(model_number) + ".model"), 'wb') as f:
+            torch.save(context, f)
+        with open(os.path.join(args.save, "decoder" + str(model_number) + ".model"), 'wb') as f:
+            torch.save(decoder, f)
+        break
+
