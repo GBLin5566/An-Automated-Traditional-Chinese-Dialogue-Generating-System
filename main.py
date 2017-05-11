@@ -79,6 +79,10 @@ context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.contex
         args.context_layer, args.dropout)
 decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
         my_lang.n_words, args.decoder_layer, args.dropout)
+# Tying two Embedding matrix and output Linear layer
+# "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
+# https://arxiv.org/abs/1611.01462
+encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
 if torch.cuda.is_available():
     encoder = encoder.cuda()
     context = context.cuda()
