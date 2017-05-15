@@ -25,15 +25,15 @@ parser = argparse.ArgumentParser(description=\
 
 parser.add_argument('--data', type=str,
         help='location of the data corpus(json file)')
-parser.add_argument('--validation_p', type=float, default=0.1,
+parser.add_argument('--validation_p', type=float, default=0.2,
         help='percentage of validation data / all data')
-parser.add_argument('--embedsize', type=int, default=200,
+parser.add_argument('--embedsize', type=int, default=100,
         help='size of word embeddings')
-parser.add_argument('--encoder_hidden', type=int, default=200,
+parser.add_argument('--encoder_hidden', type=int, default=100,
         help='number of hidden units per layer in encoder')
-parser.add_argument('--context_hidden', type=int, default=200,
+parser.add_argument('--context_hidden', type=int, default=100,
         help='number of hidden units per layer in context rnn')
-parser.add_argument('--decoder_hidden', type=int, default=200,
+parser.add_argument('--decoder_hidden', type=int, default=100,
         help='number of hidden units per layer in decoder')
 parser.add_argument('--encoder_layer', type=int, default=2,
         help='number of layers in encoder')
@@ -47,10 +47,20 @@ parser.add_argument('--clip', type=float, default=5.0,
         help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
         help='upper epoch limit')
-parser.add_argument('--dropout', type=float, default=0.25,
+parser.add_argument('--dropout', type=float, default=0.15,
         help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--seed', type=int, default=5566,
         help='random seed')
+parser.add_argument('--teacher', dest='teacher', action='store_true',
+        help='teacher force')
+parser.add_argument('--no-teacher', dest='teacher', action='store_false',
+        help='no teacher force')
+parser.set_defaults(teacher=True)
+parser.add_argument('--ss', dest='ss', action='store_true',
+        help='scheduled sampling')
+parser.add_argument('--no-ss', dest='ss', action='store_false',
+        help='no scheduled sampling')
+parser.set_defaults(ss=True)
 parser.add_argument('--save', type=str, default='model/',
         help='path to save the final model\'s directory')
 
@@ -203,37 +213,43 @@ training_data, validation_data = \
         document_list[cut:], document_list[:cut]
 
 best_validation_score = 10000
-best_training_loss = 10000
-patient = 3
+patient = 10
 model_number = 0
-teacher_forcing_ratio = 1.
+if args.teacher:
+    teacher_forcing_ratio = 1.
+else:
+    teacher_forcing_ratio = 0.
 for epoch in range(1, args.epochs + 1):
     training_loss = 0
     iter_since = time.time()
     try:
         for index, dialog in enumerate(training_data):
-            teacher_forcing_ratio *= 0.99999
+            if args.ss:
+                teacher_forcing_ratio *= 0.99999
             training_loss += train(dialog)
-            if (index + 1) % 25 == 0:
+            if (index) % 500 == 0:
                 print("    @ Iter [", index + 1, "/", len(training_data),"] | avg. loss: ", training_loss / (index + 1), \
-                        " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds")
+                        " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds | teacher_force: ", \
+                        teacher_forcing_ratio)
                 iter_since = time.time()
-                if training_loss / (index + 1) < best_training_loss:
-                    best_training_loss = training_loss / (index + 1)
-                    patient = 3
+            if (index + 1) % 1000 == 0:
+                validation_score_100 = validation(validation_data[:200])
+                if validation_score_100 < best_validation_score:
+                    best_validation_score = validation_score_100
+                    patient = 5
                 elif patient > 0:
                     patient -= 1
                 else:
                     print("****Learining rate decay****")
                     learning_rate /= 2.
-                    patient = 3
-            if (index + 1) % 10000 == 0:
-                validation_score_100 = validation(validation_data[:100])
-                with open(os.path.join(args.save, "val_" + str(index+1) + ".txt"), "w") as f:
-                    f.write(str(validation_score_100))
+                    patient = 10
+                    best_validation_score = validation_score_100
 
         validation_score = validation(validation_data)
-        print("# ", epoch, " | ", time.time() - since," seconds | validation loss: ", validation_score)
+        with open(os.path.join(args.save, "val_epoch" + str(epoch) + "_" + str(model_number) + ".txt"), "w") as f:
+            f.write(str(validation_score))
+        print("# ", epoch, " | ", time.time() - since," seconds | validation loss: ", validation_score, " | validation perplexity: ", \
+                math.exp(validation_score))
         since = time.time()
         if best_validation_score > validation_score:
             model_number += 1
