@@ -9,10 +9,10 @@ from tqdm import tqdm
 
 class Lang:
     def __init__(self):
-        self.word2index = {"SOS": 0, "EOS": 1, "COS": 2}
+        self.word2index = {"SOS": 0, "EOS": 1, "COS": 2, "EOD": 3}
         self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS", 2: "COS"}
-        self.n_words = 3
+        self.index2word = {0: "SOS", 1: "EOS", 2: "COS", 3: "EOD"}
+        self.n_words = 4
 
     def build_dict(self, document):
         for sentences in tqdm(document, desc='Building dict'):
@@ -66,5 +66,12 @@ def build_lang(json_path, dump_torch_variable=True):
                 if torch.cuda.is_available():
                     sentence = sentence.cuda()
             dialog.append(sentence)
+        # Make dialog end with a special mark EOD
+        end_of_dialog = []
+        eod_var = Variable(torch.LongTensor(my_lang.sentence2index(\
+                ["EOD"])))
+        if torch.cuda.is_available():
+            eod_var = eod_var.cuda()
+        dialog.append(eod_var)
         document_list.append(dialog)
     return my_lang, document_list

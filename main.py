@@ -11,6 +11,7 @@ import os
 import sys
 import random
 import math
+import json
 
 import torch
 from torch import optim
@@ -45,7 +46,7 @@ parser.add_argument('--lr', type=float, default=0.005,
         help='initial learning rate')
 parser.add_argument('--clip', type=float, default=5.0,
         help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=4,
+parser.add_argument('--epochs', type=int, default=20,
         help='upper epoch limit')
 parser.add_argument('--dropout', type=float, default=0.15,
         help='dropout applied to layers (0 = no dropout)')
@@ -204,8 +205,8 @@ def validation(validation_data):
                 # TODO Greedy alg. now, maybe use beam search when inferencing in the future
                 _, topi = decoder_output.data.topk(1)
                 ni = topi[0][0]
-                if ni == 1: # EOS
-                    break
+                #if ni == 1: # EOS
+                #    break
                 decoder_input = Variable(torch.LongTensor([[ni]]))
                 if torch.cuda.is_available():
                     decoder_input = decoder_input.cuda()
@@ -232,6 +233,15 @@ if args.teacher:
     teacher_forcing_ratio = 1.
 else:
     teacher_forcing_ratio = 0.
+
+# Save info. for loss.
+save_training_loss = []
+save_validation_loss = []
+
+def save_loss(train, val):
+    with open(os.path.join(args.save, "loss.json"), "w") as outfile:
+        json.dump([train, val], outfile)
+
 for epoch in range(1, args.epochs + 1):
     training_loss = 0
     iter_since = time.time()
@@ -245,8 +255,12 @@ for epoch in range(1, args.epochs + 1):
                         " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds | teacher_force: ", \
                         teacher_forcing_ratio)
                 iter_since = time.time()
-            if (index + 1) % 1000 == 0:
+            if (index + 1) % 2000 == 0:
+                val_since = time.time()
                 validation_score_100 = validation(validation_data[:100])
+                print("    @ Val. [", index + 1, "/", len(training_data),"] | avg. val. loss: ", validation_score_100, \
+                        " | perplexity: ", math.exp(validation_score_100)," | usage ", time.time() - val_since, " seconds")
+                print("    % Best validation score: ", best_validation_score)
                 if validation_score_100 < best_validation_score:
                     best_validation_score = validation_score_100
                     patient = 5
@@ -257,10 +271,12 @@ for epoch in range(1, args.epochs + 1):
                     learning_rate /= 2.
                     patient = 10
                     best_validation_score = validation_score_100
+                print("    % After validation best validation score: ", best_validation_score)
 
         validation_score = validation(validation_data)
-        with open(os.path.join(args.save, "val_epoch" + str(epoch) + "_" + str(model_number) + ".txt"), "w") as f:
-            f.write(str(validation_score))
+        save_training_loss.append(training_loss / (index + 1))
+        save_validation_loss.append(validation_score)
+        save_loss(save_training_loss, save_validation_loss)
         print("# ", epoch, " | ", time.time() - since," seconds | validation loss: ", validation_score, " | validation perplexity: ", \
                 math.exp(validation_score))
         since = time.time()
