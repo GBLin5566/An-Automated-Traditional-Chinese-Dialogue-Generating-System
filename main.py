@@ -45,7 +45,7 @@ parser.add_argument('--lr', type=float, default=0.005,
         help='initial learning rate')
 parser.add_argument('--clip', type=float, default=5.0,
         help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=40,
+parser.add_argument('--epochs', type=int, default=4,
         help='upper epoch limit')
 parser.add_argument('--dropout', type=float, default=0.15,
         help='dropout applied to layers (0 = no dropout)')
@@ -176,6 +176,7 @@ def validation(validation_data):
 
         loss = 0
 
+        gen_sentence = []
         for index, sentence in enumerate(dialog):
             if index == len(dialog) - 1:
                 break
@@ -183,12 +184,20 @@ def validation(validation_data):
             decoder_input = check_cuda_for_var(decoder_input)
             encoder_hidden = encoder.init_hidden()
             decoder_hidden = decoder.init_hidden()
-            for ei in range(len(sentence)):
-                _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+            if len(gen_sentence) > 0:
+                for ei in range(len(gen_sentence)):
+                    _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
+                # Clean generated sentence list
+                gen_sentence = []
+            else:
+                for ei in range(len(sentence)):
+                    _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
             encoder_hidden = encoder_hidden.view(1, 1, -1)
             context_output, context_hidden = context(encoder_hidden, context_hidden)
             next_sentence = dialog[index+1]
             for di in range(len(next_sentence)):
+                predict_count += 1
+                gen_sentence.append(decoder_input.data[0][0])
                 decoder_output, decoder_hidden = decoder(context_hidden,\
                         decoder_input, decoder_hidden)
                 loss += criterion(decoder_output[0], next_sentence[di])
@@ -200,7 +209,11 @@ def validation(validation_data):
                 decoder_input = Variable(torch.LongTensor([[ni]]))
                 if torch.cuda.is_available():
                     decoder_input = decoder_input.cuda()
-                predict_count += 1
+            # Make gen_sentence concated with a EOS and make it torch Variable
+            gen_sentence.append(1)
+            gen_sentence = Variable(torch.LongTensor(gen_sentence))
+            if torch.cuda.is_available():
+                gen_sentence = gen_sentence.cuda()
 
         validation_loss += (loss.data[0] / predict_count)
 
@@ -233,7 +246,7 @@ for epoch in range(1, args.epochs + 1):
                         teacher_forcing_ratio)
                 iter_since = time.time()
             if (index + 1) % 1000 == 0:
-                validation_score_100 = validation(validation_data[:200])
+                validation_score_100 = validation(validation_data[:100])
                 if validation_score_100 < best_validation_score:
                     best_validation_score = validation_score_100
                     patient = 5
