@@ -85,12 +85,12 @@ check_directory(args.save)
 my_lang, document_list = utils.build_lang(args.data)
 
 learning_rate = args.lr
-encoder = model.EncoderRNN(my_lang.n_words, args.encoder_hidden, \
+encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
         args.encoder_layer, args.dropout)
 context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.context_hidden, \
         args.context_layer, args.dropout)
 decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
-        my_lang.n_words, args.decoder_layer, args.dropout)
+        len(my_lang.word2index), args.decoder_layer, args.dropout)
 # Tying two Embedding matrix and output Linear layer
 # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
 # https://arxiv.org/abs/1611.01462
@@ -284,21 +284,15 @@ for epoch in range(1, args.epochs + 1):
             model_number += 1
             print("Saving better model number ",model_number)
             best_validation_score = validation_score
-            with open(os.path.join(args.save, "encoder" + str(model_number) + ".model"), 'wb') as f:
-                torch.save(encoder, f)
-            with open(os.path.join(args.save, "context" + str(model_number) + ".model"), 'wb') as f:
-                torch.save(context, f)
-            with open(os.path.join(args.save, "decoder" + str(model_number) + ".model"), 'wb') as f:
-                torch.save(decoder, f)
+            torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
+            torch.save(context, os.path.join(args.save, "context" + str(model_number) + ".pt"))
+            torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
     except:
         print(sys.exc_info())
         model_number += 1
         print("Get stopped, saving the latest model")
-        with open(os.path.join(args.save, "encoder" + str(model_number) + ".model"), 'wb') as f:
-            torch.save(encoder, f)
-        with open(os.path.join(args.save, "context" + str(model_number) + ".model"), 'wb') as f:
-            torch.save(context, f)
-        with open(os.path.join(args.save, "decoder" + str(model_number) + ".model"), 'wb') as f:
-            torch.save(decoder, f)
+        torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
+        torch.save(context, os.path.join(args.save, "context" + str(model_number) + ".pt"))
+        torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
         break
 
