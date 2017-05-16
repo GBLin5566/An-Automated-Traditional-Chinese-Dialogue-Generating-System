@@ -91,10 +91,8 @@ training_data, validation_data = \
         document_list[cut:], document_list[:cut]
 # Test mode
 if args.test:
-    number = 1
-#    while os.path.isfile(os.path.join(args.save, 'encoder'+str(number)+'.pt')):
-#        number += 1
-#    number -= 1
+    # Load newest model
+    number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
     encoder = torch.load(os.path.join(args.save, 'encoder'+str(number)+'.pt'))
     context = torch.load(os.path.join(args.save, 'context'+str(number)+'.pt'))
     decoder = torch.load(os.path.join(args.save, 'decoder'+str(number)+'.pt'))
@@ -111,7 +109,7 @@ if args.test:
         for index, sentence in enumerate(dialog):
             if index == len(dialog) - 1:
                 break
-            decoder_input = Variable(torch.LongTensor([[0]]))
+            decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             decoder_input = check_cuda_for_var(decoder_input)
             encoder_hidden = encoder.init_hidden()
             decoder_hidden = decoder.init_hidden()
@@ -136,7 +134,7 @@ if args.test:
                 if torch.cuda.is_available():
                     decoder_input = decoder_input.cuda()
             # Make gen_sentence concated with a EOS and make it torch Variable
-            gen_sentence.append(1)
+            gen_sentence.append(my_lang.word2index["EOS"])
             gen_sentence = Variable(torch.LongTensor(gen_sentence))
             if torch.cuda.is_available():
                 gen_sentence = gen_sentence.cuda()
@@ -188,7 +186,7 @@ def train(training_data):
     for index, sentence in enumerate(training_data):
         if index == len(training_data) - 1:
             break
-        decoder_input = Variable(torch.LongTensor([[0]]))
+        decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
         decoder_input = check_cuda_for_var(decoder_input)
         encoder_hidden = encoder.init_hidden()
         decoder_hidden = decoder.init_hidden()
@@ -246,7 +244,7 @@ def validation(validation_data):
         for index, sentence in enumerate(dialog):
             if index == len(dialog) - 1:
                 break
-            decoder_input = Variable(torch.LongTensor([[0]]))
+            decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             decoder_input = check_cuda_for_var(decoder_input)
             encoder_hidden = encoder.init_hidden()
             decoder_hidden = decoder.init_hidden()
@@ -276,7 +274,7 @@ def validation(validation_data):
                 if torch.cuda.is_available():
                     decoder_input = decoder_input.cuda()
             # Make gen_sentence concated with a EOS and make it torch Variable
-            gen_sentence.append(1)
+            gen_sentence.append(my_lang.word2index["EOS"])
             gen_sentence = Variable(torch.LongTensor(gen_sentence))
             if torch.cuda.is_available():
                 gen_sentence = gen_sentence.cuda()
@@ -348,6 +346,7 @@ for epoch in range(1, args.epochs + 1):
             torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
             torch.save(context, os.path.join(args.save, "context" + str(model_number) + ".pt"))
             torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
+            torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
     except:
         print(sys.exc_info())
         model_number += 1
@@ -355,5 +354,6 @@ for epoch in range(1, args.epochs + 1):
         torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
         torch.save(context, os.path.join(args.save, "context" + str(model_number) + ".pt"))
         torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
+        torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
         break
 

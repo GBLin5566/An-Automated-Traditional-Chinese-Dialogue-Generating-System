@@ -55,7 +55,6 @@ class Lang:
 
     def sentence2index(self, sentence):
         indexs = []
-        indexs.append(self.word2index["SOS"])
         for word in sentence:
             if word in self.word2index:
                 indexs.append(self.word2index[word])
@@ -79,7 +78,7 @@ def build_lang(json_path, dump_torch_variable=True):
     my_lang.prune_dict()
 
     document_list = []
-    for sentences in tqdm(whole_list, desc='Indexing & Making torch variable'):
+    for sentences in tqdm(whole_list[:10], desc='Indexing & Making torch variable'):
         dialog = []
         for sentence in sentences:
             if dump_torch_variable:
