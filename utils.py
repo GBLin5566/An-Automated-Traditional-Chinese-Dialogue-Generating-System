@@ -37,11 +37,11 @@ class Lang:
                 prune_num += 1
         to_be_pruned = set(to_be_pruned)
 
-        new_word2index = {}
-        new_index2word = {}
-        self.n_words = 0
+        new_word2index = {"SOS": 0, "EOS": 1, "COS": 2, "EOD": 3}
+        new_index2word = {0: "SOS", 1: "EOS", 2: "COS", 3: "EOD"}
+        self.n_words = 4
         for key in self.word2index.keys():
-            if key in to_be_pruned:
+            if key in to_be_pruned or key in ["SOS", "EOS", "COS", "EOD"]:
                 continue
             new_word2index[key] = self.n_words
             new_index2word[self.n_words] = key
@@ -61,6 +61,15 @@ class Lang:
                 indexs.append(self.word2index[word])
         indexs.append(self.word2index["EOS"])
         return indexs
+
+    def index2sentence(self, indexs):
+        sentence = []
+        for index in indexs:
+            if isinstance(index, Variable):
+                sentence.append(self.index2word[index.data[0]])
+            else:
+                sentence.append(self.index2word[index])
+        return sentence
 
 def build_lang(json_path, dump_torch_variable=True):
     with open(json_path, 'r') as jsonfile:
