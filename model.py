@@ -20,7 +20,7 @@ class EncoderRNN(nn.Module):
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
 
         self.is_cuda = torch.cuda.is_available()
-        #self.init_weight()
+        self.init_weight()
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
@@ -29,7 +29,8 @@ class EncoderRNN(nn.Module):
         return hidden
 
     def init_weight(self):
-        init.orthogonal(self.embedding.weight.data)
+        initrange = 0.1
+        self.embedding.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, input, hidden):
         embedded = self.embedding(input).view(1, 1, -1)
@@ -77,7 +78,7 @@ class DecoderRNN(nn.Module):
         self.gru = nn.GRU(context_output_size + hidden_size, hidden_size, n_layers, dropout=dropout)
 
         self.is_cuda = torch.cuda.is_available()
-        #self.init_weight()
+        self.init_weight()
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
@@ -86,7 +87,9 @@ class DecoderRNN(nn.Module):
         return hidden
 
     def init_weight(self):
-        init.orthogonal(self.out.weight.data)
+        initrange = 0.1
+        self.out.weight.data.uniform_(-initrange, initrange)
+        self.embedding.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, context_output, input, hidden):
         context_output = context_output.view(1, 1, -1)

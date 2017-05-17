@@ -44,6 +44,13 @@ parser.add_argument('--context_layer', type=int, default=2,
         help='number of layers in context')
 parser.add_argument('--decoder_layer', type=int, default=2,
         help='number of layers in decoder')
+parser.add_argument('--structure', type=str, default='h-rnn',
+        help='structure of dialog model (h-rnn, seq2seq)')
+parser.add_argument('--tie', dest='tie', action='store_true',
+        help='tie the weight of embedding and output linear')
+parser.add_argument('--no-tie', dest='tie', action='store_false',
+        help='don\'t tie the weight of embedding and output linear')
+parser.set_defaults(tie=True)
 parser.add_argument('--lr', type=float, default=0.01,
         help='initial learning rate')
 parser.add_argument('--clip', type=float, default=5.0,
@@ -106,10 +113,12 @@ context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.contex
         args.context_layer, args.dropout)
 decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
         len(my_lang.word2index), args.decoder_layer, args.dropout)
-# Tying two Embedding matrix and output Linear layer
-# "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-# https://arxiv.org/abs/1611.01462
-encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
+
+if args.tie:
+    # Tying two Embedding matrix and output Linear layer
+    # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
+    # https://arxiv.org/abs/1611.01462
+    encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
 if torch.cuda.is_available():
     encoder = encoder.cuda()
     context = context.cuda()
