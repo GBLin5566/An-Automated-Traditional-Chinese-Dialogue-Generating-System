@@ -57,6 +57,7 @@ class ContextRNN(nn.Module):
         return hidden
 
     def forward(self, input, hidden):
+        input = input.view(1, 1, -1)
         output, hidden = self.gru(input, hidden)
         return output, hidden
 

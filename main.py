@@ -121,7 +121,6 @@ if args.test:
             else:
                 for ei in range(len(sentence)):
                     _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-            encoder_hidden = encoder_hidden.view(1, 1, -1)
             context_output, context_hidden = context(encoder_hidden, context_hidden)
             next_sentence = dialog[index+1]
             for di in range(len(next_sentence)):
@@ -196,7 +195,6 @@ def train(training_data):
             else:
                 _, encoder_hidden = encoder(model_predict[ei], encoder_hidden)
 
-        encoder_hidden = encoder_hidden.view(1, 1, -1)
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = training_data[index+1]
         model_predict = []
@@ -253,7 +251,6 @@ def validation(validation_data):
             else:
                 for ei in range(len(sentence)):
                     _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-            encoder_hidden = encoder_hidden.view(1, 1, -1)
             context_output, context_hidden = context(encoder_hidden, context_hidden)
             next_sentence = dialog[index+1]
             for di in range(len(next_sentence)):
@@ -303,7 +300,6 @@ def sample(dialog):
         else:
             for ei in range(len(sentence)):
                 _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-        encoder_hidden = encoder_hidden.view(1, 1, -1)
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = dialog[index+1]
         for di in range(len(next_sentence)):
