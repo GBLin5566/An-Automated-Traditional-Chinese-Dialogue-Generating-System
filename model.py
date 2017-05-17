@@ -97,3 +97,36 @@ class DecoderRNN(nn.Module):
         output, hidden = self.gru(input_cat, hidden)
         output = F.log_softmax(self.out(output[0]))
         return output, hidden
+
+class DecoderRNNSeq(nn.Module):
+    """Seq2seq's Decoder RNN Building"""
+    def __init__(self, hidden_size, output_size, n_layers, dropout):
+        super(DecoderRNN, self).__init__()
+
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.n_layers = n_layers
+        self.embedding = nn.Embedding(output_size, hidden_size)
+        
+        self.out = nn.Linear(hidden_size, output_size)
+        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
+
+        self.is_cuda = torch.cuda.is_available()
+        self.init_weight()
+
+    def init_hidden(self):
+        hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
+        if self.is_cuda:
+            hidden = hidden.cuda()
+        return hidden
+
+    def init_weight(self):
+        initrange = 0.1
+        self.out.weight.data.uniform_(-initrange, initrange)
+        self.embedding.weight.data.uniform_(-initrange, initrange)
+
+    def forward(self,  input, hidden):
+        embedded = self.embedding(input).view(1, 1, -1)
+        output, hidden = self.gru(embedded, hidden)
+        output = F.softmax(self.out(output[0]))
+        return output, hidden

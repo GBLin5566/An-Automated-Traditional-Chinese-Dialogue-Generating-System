@@ -107,26 +107,42 @@ if args.test:
     sys.exit(0)
 
 learning_rate = args.lr
-encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
-        args.encoder_layer, args.dropout)
-context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.context_hidden, \
-        args.context_layer, args.dropout)
-decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
-        len(my_lang.word2index), args.decoder_layer, args.dropout)
+if args.structure == 'h-rnn':
+    encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
+            args.encoder_layer, args.dropout)
+    context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.context_hidden, \
+            args.context_layer, args.dropout)
+    decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
+            len(my_lang.word2index), args.decoder_layer, args.dropout)
+    criterion = nn.NLLLoss()
+    if torch.cuda.is_available():
+        encoder = encoder.cuda()
+        context = context.cuda()
+        decoder = decoder.cuda()
+        criterion = criterion.cuda()
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+    context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+elif args.structure == 'seq2seq':
+    encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
+            args.encoder_layer, args.dropout)
+    decoder = model.DecoderRNN(args.encoder_hidden, args.decoder_hidden, \
+            args.decoder_layer, args.dropout)
+    criterion = nn.CrossEntropyLoss()
+    if torch.cuda.is_available():
+        encoder = encoder.cuda()
+        decoder = decoder.cuda()
+        criterion = criterion.cuda()
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+else:
+    raise ValueError('--structure should be one of [h-rnn, seq2seq]')
 
 if args.tie:
     # Tying two Embedding matrix and output Linear layer
     # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
     # https://arxiv.org/abs/1611.01462
     encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
-if torch.cuda.is_available():
-    encoder = encoder.cuda()
-    context = context.cuda()
-    decoder = decoder.cuda()
-encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
-decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
-criterion = nn.NLLLoss()
 
 since = time.time()
 
