@@ -76,6 +76,8 @@ parser.add_argument('--save', type=str, default='model/',
 parser.add_argument('--test', dest='test', action='store_true',
         help='test mode')
 parser.set_defaults(test=False)
+parser.add_argument('--limit', type=int, default=0,
+        help='limit the size of whole data set')
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -85,6 +87,8 @@ check_directory(args.save)
 # Read data
 my_lang, document_list = utils.build_lang(args.data)
 random.shuffle(document_list)
+if args.limit != 0:
+    document_list = document_list[:args.limit]
 cut = int(len(document_list) * args.validation_p)
 training_data, validation_data = \
         document_list[cut:], document_list[:cut]
@@ -123,6 +127,11 @@ if args.structure == 'h-rnn':
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
     context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+    if args.tie:
+        # Tying two Embedding matrix and output Linear layer
+        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
+        # https://arxiv.org/abs/1611.01462
+        encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
 elif args.structure == 'seq2seq':
     encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
             args.encoder_layer, args.dropout)
@@ -135,14 +144,14 @@ elif args.structure == 'seq2seq':
         criterion = criterion.cuda()
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+    if args.tie:
+        # Tying two Embedding matrix and output Linear layer
+        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
+        # https://arxiv.org/abs/1611.01462
+        encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
 else:
     raise ValueError('--structure should be one of [h-rnn, seq2seq]')
 
-if args.tie:
-    # Tying two Embedding matrix and output Linear layer
-    # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-    # https://arxiv.org/abs/1611.01462
-    encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
 
 since = time.time()
 
@@ -166,7 +175,7 @@ for epoch in range(1, args.epochs + 1):
     training_loss = 0
     iter_since = time.time()
     try:
-        for index, dialog in enumerate(training_data[:10]):
+        for index, dialog in enumerate(training_data):
             if args.ss:
                 teacher_forcing_ratio *= 0.99999
             training_loss += train(my_lang, criterion, teacher_forcing_ratio,\
@@ -197,7 +206,6 @@ for epoch in range(1, args.epochs + 1):
                     patient = 10
                     best_validation_score = validation_score_100
                 print("    % After validation best validation score: ", best_validation_score)
-        '''
         validation_score = validate(my_lang, criterion, teacher_forcing_ratio, \
                 validation_data, encoder, context, decoder, \
                 encoder_optimizer, context_optimizer, decoder_optimizer)
@@ -215,7 +223,6 @@ for epoch in range(1, args.epochs + 1):
             torch.save(context, os.path.join(args.save, "context" + str(model_number) + ".pt"))
             torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
             torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
-        '''
     except:
         print(sys.exc_info())
         model_number += 1
