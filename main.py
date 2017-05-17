@@ -280,6 +280,49 @@ def validation(validation_data):
 
     return validation_loss / len(validation_data)
 
+def sample(dialog):
+    print("Golden ->")
+    for sentence in dialog:
+        string = ''.join([my_lang.index2word(word.data[0]) for word in sentence])
+        print(string)
+    print("Predict ->")
+    gen_sentence = []
+    for index, sentence in enumerate(dialog):
+        if index == len(dialog) - 1:
+            break
+        decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
+        decoder_input = check_cuda_for_var(decoder_input)
+        encoder_hidden = encoder.init_hidden()
+        decoder_hidden = decoder.init_hidden()
+        if len(gen_sentence) > 0:
+            for ei in range(len(gen_sentence)):
+                _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
+            # Clean generated sentence list
+            gen_sentence = []
+        else:
+            for ei in range(len(sentence)):
+                _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+        encoder_hidden = encoder_hidden.view(1, 1, -1)
+        context_output, context_hidden = context(encoder_hidden, context_hidden)
+        next_sentence = dialog[index+1]
+        for di in range(len(next_sentence)):
+            predict_count += 1
+            gen_sentence.append(decoder_input.data[0][0])
+            decoder_output, decoder_hidden = decoder(context_hidden,\
+                    decoder_input, decoder_hidden)
+            loss += criterion(decoder_output[0], next_sentence[di])
+            _, topi = decoder_output.data.topk(1)
+            ni = topi[0][0]
+            decoder_input = Variable(torch.LongTensor([[ni]]))
+            if torch.cuda.is_available():
+                decoder_input = decoder_input.cuda()
+        # Make gen_sentence concated with a EOS and make it torch Variable
+        gen_sentence.append(my_lang.word2index["EOS"])
+        gen_sentence = Variable(torch.LongTensor(gen_sentence))
+        if torch.cuda.is_available():
+            gen_sentence = gen_sentence.cuda()
+        string = ''.join([my_lang.index2word(word.data[0]) for word in gen_sentence])
+        print(string)
 since = time.time()
 
 best_validation_score = 10000
@@ -310,6 +353,7 @@ for epoch in range(1, args.epochs + 1):
                 print("    @ Iter [", index + 1, "/", len(training_data),"] | avg. loss: ", training_loss / (index + 1), \
                         " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds | teacher_force: ", \
                         teacher_forcing_ratio)
+                sample(dialog)
                 iter_since = time.time()
             if (index + 1) % 2000 == 0:
                 val_since = time.time()
