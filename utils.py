@@ -41,7 +41,7 @@ class Lang:
         new_index2word = {0: "SOS", 1: "EOS", 2: "COS", 3: "EOD"}
         self.n_words = 4
         for key in self.word2index.keys():
-            if key in to_be_pruned or key in ["SOS", "EOS", "COS", "EOD"]:
+            if key in to_be_pruned or key in set(["SOS", "EOS", "COS", "EOD", "__", "img", "jpg", "screenshot"]) or key.isdigit():
                 continue
             new_word2index[key] = self.n_words
             new_index2word[self.n_words] = key

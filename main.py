@@ -42,11 +42,11 @@ parser.add_argument('--context_layer', type=int, default=2,
         help='number of layers in context')
 parser.add_argument('--decoder_layer', type=int, default=2,
         help='number of layers in decoder')
-parser.add_argument('--lr', type=float, default=0.005,
+parser.add_argument('--lr', type=float, default=0.01,
         help='initial learning rate')
 parser.add_argument('--clip', type=float, default=5.0,
         help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=20,
+parser.add_argument('--epochs', type=int, default=1000,
         help='upper epoch limit')
 parser.add_argument('--dropout', type=float, default=0.25,
         help='dropout applied to layers (0 = no dropout)')
@@ -344,15 +344,15 @@ for epoch in range(1, args.epochs + 1):
     training_loss = 0
     iter_since = time.time()
     try:
-        for index, dialog in enumerate(training_data):
+        for index, dialog in enumerate(training_data[:10]):
             if args.ss:
                 teacher_forcing_ratio *= 0.99999
             training_loss += train(dialog)
+            sample(dialog)
             if (index) % 500 == 0:
                 print("    @ Iter [", index + 1, "/", len(training_data),"] | avg. loss: ", training_loss / (index + 1), \
                         " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds | teacher_force: ", \
                         teacher_forcing_ratio)
-                sample(dialog)
                 iter_since = time.time()
             if (index + 1) % 2000 == 0:
                 val_since = time.time()
@@ -371,7 +371,7 @@ for epoch in range(1, args.epochs + 1):
                     patient = 10
                     best_validation_score = validation_score_100
                 print("    % After validation best validation score: ", best_validation_score)
-
+        '''
         validation_score = validation(validation_data)
         save_training_loss.append(training_loss / (index + 1))
         save_validation_loss.append(validation_score)
@@ -387,6 +387,7 @@ for epoch in range(1, args.epochs + 1):
             torch.save(context, os.path.join(args.save, "context" + str(model_number) + ".pt"))
             torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
             torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
+        '''
     except:
         print(sys.exc_info())
         model_number += 1

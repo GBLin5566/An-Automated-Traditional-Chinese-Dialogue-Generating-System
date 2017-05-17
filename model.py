@@ -20,7 +20,7 @@ class EncoderRNN(nn.Module):
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
 
         self.is_cuda = torch.cuda.is_available()
-        self.init_weight()
+        #self.init_weight()
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
@@ -76,7 +76,7 @@ class DecoderRNN(nn.Module):
         self.gru = nn.GRU(context_output_size + hidden_size, hidden_size, n_layers, dropout=dropout)
 
         self.is_cuda = torch.cuda.is_available()
-        self.init_weight()
+        #self.init_weight()
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
