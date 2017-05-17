@@ -307,11 +307,9 @@ def sample(dialog):
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = dialog[index+1]
         for di in range(len(next_sentence)):
-            predict_count += 1
             gen_sentence.append(decoder_input.data[0][0])
             decoder_output, decoder_hidden = decoder(context_hidden,\
                     decoder_input, decoder_hidden)
-            loss += criterion(decoder_output[0], next_sentence[di])
             _, topi = decoder_output.data.topk(1)
             ni = topi[0][0]
             decoder_input = Variable(torch.LongTensor([[ni]]))
