@@ -193,7 +193,6 @@ def train(training_data):
         for ei in range(len(sentence)):
             if ei > len(model_predict) - 1 or random.random() < teacher_forcing_ratio:
                 _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-                print(my_lang.index2word[sentence[ei].data[0]])
             else:
                 _, encoder_hidden = encoder(model_predict[ei], encoder_hidden)
 
@@ -201,7 +200,6 @@ def train(training_data):
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = training_data[index+1]
         model_predict = []
-        print("-"*10)
         for di in range(len(next_sentence)):
             predict_count += 1
             decoder_output, decoder_hidden = decoder(context_hidden,\
@@ -210,8 +208,6 @@ def train(training_data):
             # Scheduled Sampling
             _, topi = decoder_output.data.topk(1)
             ni = topi[0][0]
-            print(my_lang.index2word[next_sentence[di].data[0]], " ", next_sentence[di].data[0])
-            print("    ", my_lang.index2word[ni], " ", ni)
             ni_var = Variable(torch.LongTensor([[ni]]))
             if torch.cuda.is_available():
                 ni_var = ni_var.cuda()
