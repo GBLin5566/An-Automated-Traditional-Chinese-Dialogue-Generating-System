@@ -44,8 +44,6 @@ parser.add_argument('--context_layer', type=int, default=2,
         help='number of layers in context')
 parser.add_argument('--decoder_layer', type=int, default=2,
         help='number of layers in decoder')
-parser.add_argument('--structure', type=str, default='h-rnn',
-        help='structure of dialog model (h-rnn, seq2seq)')
 parser.add_argument('--tie', dest='tie', action='store_true',
         help='tie the weight of embedding and output linear')
 parser.add_argument('--no-tie', dest='tie', action='store_false',
@@ -111,47 +109,26 @@ if args.test:
     sys.exit(0)
 
 learning_rate = args.lr
-if args.structure == 'h-rnn':
-    encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
-            args.encoder_layer, args.dropout)
-    context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.context_hidden, \
-            args.context_layer, args.dropout)
-    decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
-            len(my_lang.word2index), args.decoder_layer, args.dropout)
-    criterion = nn.NLLLoss()
-    if torch.cuda.is_available():
-        encoder = encoder.cuda()
-        context = context.cuda()
-        decoder = decoder.cuda()
-        criterion = criterion.cuda()
-    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-    context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
-    if args.tie:
-        # Tying two Embedding matrix and output Linear layer
-        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-        # https://arxiv.org/abs/1611.01462
-        encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
-elif args.structure == 'seq2seq':
-    encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
-            args.encoder_layer, args.dropout)
-    decoder = model.DecoderRNN(args.encoder_hidden, args.decoder_hidden, \
-            args.decoder_layer, args.dropout)
-    criterion = nn.CrossEntropyLoss()
-    if torch.cuda.is_available():
-        encoder = encoder.cuda()
-        decoder = decoder.cuda()
-        criterion = criterion.cuda()
-    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
-    if args.tie:
-        # Tying two Embedding matrix and output Linear layer
-        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-        # https://arxiv.org/abs/1611.01462
-        encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
-else:
-    raise ValueError('--structure should be one of [h-rnn, seq2seq]')
-
+encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
+        args.encoder_layer, args.dropout)
+context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.context_hidden, \
+        args.context_layer, args.dropout)
+decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
+        len(my_lang.word2index), args.decoder_layer, args.dropout)
+criterion = nn.NLLLoss()
+if torch.cuda.is_available():
+    encoder = encoder.cuda()
+    context = context.cuda()
+    decoder = decoder.cuda()
+    criterion = criterion.cuda()
+encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
+decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+if args.tie:
+    # Tying two Embedding matrix and output Linear layer
+    # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
+    # https://arxiv.org/abs/1611.01462
+    encoder.embedding.weight = decoder.embedding.weight = decoder.out.weight
 
 since = time.time()
 
@@ -181,11 +158,11 @@ for epoch in range(1, args.epochs + 1):
             training_loss += train(my_lang, criterion, teacher_forcing_ratio,\
                     dialog, encoder, context, decoder, \
                     encoder_optimizer, context_optimizer, decoder_optimizer)
-            sample(my_lang, dialog, encoder, context, decoder)
             if (index) % 500 == 0:
                 print("    @ Iter [", index + 1, "/", len(training_data),"] | avg. loss: ", training_loss / (index + 1), \
                         " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds | teacher_force: ", \
                         teacher_forcing_ratio)
+                sample(my_lang, dialog, encoder, context, decoder)
                 iter_since = time.time()
             if (index + 1) % 2000 == 0:
                 val_since = time.time()
