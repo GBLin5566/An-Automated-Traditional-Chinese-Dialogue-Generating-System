@@ -27,7 +27,7 @@ class Lang:
                     else:
                         self.word2count[word] += 1
 
-    def prune_dict(self, threshold=2):
+    def prune_dict(self, threshold=3):
         print("Before prune dict size ", len(self.word2index))
         prune_num = 0
         to_be_pruned = []
@@ -78,7 +78,7 @@ def build_lang(json_path, dump_torch_variable=True):
     my_lang.prune_dict()
 
     document_list = []
-    for sentences in tqdm(whole_list[:10], desc='Indexing & Making torch variable'):
+    for sentences in tqdm(whole_list, desc='Indexing & Making torch variable'):
         dialog = []
         for sentence in sentences:
             if dump_torch_variable:
