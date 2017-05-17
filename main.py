@@ -283,10 +283,11 @@ def validation(validation_data):
 def sample(dialog):
     print("Golden ->")
     for sentence in dialog:
-        string = ''.join([my_lang.index2word[word.data[0]] for word in sentence])
+        string = ' '.join([my_lang.index2word[word.data[0]] for word in sentence])
         print(string)
     print("Predict ->")
     gen_sentence = []
+    context_hidden = context.init_hidden()
     for index, sentence in enumerate(dialog):
         if index == len(dialog) - 1:
             break
@@ -321,7 +322,7 @@ def sample(dialog):
         gen_sentence = Variable(torch.LongTensor(gen_sentence))
         if torch.cuda.is_available():
             gen_sentence = gen_sentence.cuda()
-        string = ''.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
+        string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
         print(string)
 since = time.time()
 
