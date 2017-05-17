@@ -4,12 +4,7 @@ import random
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-
-def check_cuda_for_var(var):
-    if torch.cuda.is_available():
-        return var.cuda()
-    else:
-        return var 
+from utils import check_cuda_for_var
 
 def train(my_lang, criterion, teacher_forcing_ratio, \
         training_data, encoder, context, decoder,\
@@ -122,3 +117,44 @@ def validate(my_lang, criterion, teacher_forcing_ratio, \
         
     return validation_loss / len(validation_data)
 
+def sample(my_lang, dialog, encoder, context, decoder):
+    print("Golden ->")
+    for sentence in dialog:
+        string = ' '.join([my_lang.index2word[word.data[0]] for word in sentence])
+        print(string)
+    print("Predict ->")
+    gen_sentence = []
+    context_hidden = context.init_hidden()
+    for index, sentence in enumerate(dialog):
+        if index == len(dialog) - 1:
+            break
+        decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
+        decoder_input = check_cuda_for_var(decoder_input)
+        encoder_hidden = encoder.init_hidden()
+        decoder_hidden = decoder.init_hidden()
+        if len(gen_sentence) > 0:
+            for ei in range(len(gen_sentence)):
+                _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
+            # Clean generated sentence list
+            gen_sentence = []
+        else:
+            for ei in range(len(sentence)):
+                _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+        context_output, context_hidden = context(encoder_hidden, context_hidden)
+        next_sentence = dialog[index+1]
+        for di in range(len(next_sentence)):
+            gen_sentence.append(decoder_input.data[0][0])
+            decoder_output, decoder_hidden = decoder(context_hidden,\
+                    decoder_input, decoder_hidden)
+            _, topi = decoder_output.data.topk(1)
+            ni = topi[0][0]
+            decoder_input = Variable(torch.LongTensor([[ni]]))
+            if torch.cuda.is_available():
+                decoder_input = decoder_input.cuda()
+        # Make gen_sentence concated with a EOS and make it torch Variable
+        gen_sentence.append(my_lang.word2index["EOS"])
+        gen_sentence = Variable(torch.LongTensor(gen_sentence))
+        if torch.cuda.is_available():
+            gen_sentence = gen_sentence.cuda()
+        string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
+        print(string)
