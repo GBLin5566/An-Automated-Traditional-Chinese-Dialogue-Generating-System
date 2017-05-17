@@ -21,6 +21,7 @@ from torch.autograd import Variable
 import model
 from ops import check_cuda_for_var, train, validate
 import utils
+from utils import check_cuda_for_var, check_directory 
 
 parser = argparse.ArgumentParser(description=\
         'Pytorch Traditional Chinese Dialouge Generating System builded on Hierarchical RNN.')
@@ -72,16 +73,6 @@ args = parser.parse_args()
 
 torch.manual_seed(args.seed)
 random.seed(args.seed)
-
-def check_cuda_for_var(var):
-    if torch.cuda.is_available():
-        return var.cuda()
-    else:
-        return var
-
-def check_directory(directory):
-    if not os.path.exists(directory):
-        os.makedirs(directory)
 
 def sample(dialog, encoder, context, decoder):
     print("Golden ->")

@@ -1,10 +1,9 @@
 """Data utils"""
+import os
+import json
 
 import torch.cuda
 from torch.autograd import Variable
-
-import json
-
 from tqdm import tqdm
 
 class Lang:
@@ -96,3 +95,13 @@ def build_lang(json_path, dump_torch_variable=True):
         dialog.append(eod_var)
         document_list.append(dialog)
     return my_lang, document_list
+
+def check_cuda_for_var(var):
+    if torch.cuda.is_available():
+        return var.cuda()
+    else:
+        return var 
+
+def check_directory(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
