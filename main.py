@@ -19,6 +19,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 import model
+from ops import check_cuda_for_var, train, validate
 import utils
 
 parser = argparse.ArgumentParser(description=\
@@ -168,117 +169,6 @@ context_optimizer = optim.Adam(context.parameters(), lr=learning_rate)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
 criterion = nn.NLLLoss()
 
-
-def train(training_data):
-    # Zero gradients
-    encoder_optimizer.zero_grad()
-    context_optimizer.zero_grad()
-    decoder_optimizer.zero_grad()
-    loss = Variable(torch.FloatTensor(1))
-    nn.init.constant(loss, 0)
-    loss = check_cuda_for_var(loss)
-
-    context_hidden = context.init_hidden()
-
-    predict_count = 0
-
-    model_predict = []
-
-    for index, sentence in enumerate(training_data):
-        if index == len(training_data) - 1:
-            break
-        decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
-        decoder_input = check_cuda_for_var(decoder_input)
-        encoder_hidden = encoder.init_hidden()
-        decoder_hidden = decoder.init_hidden()
-        for ei in range(len(sentence)):
-            if ei > len(model_predict) - 1 or random.random() < teacher_forcing_ratio:
-                _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-            else:
-                _, encoder_hidden = encoder(model_predict[ei], encoder_hidden)
-
-        context_output, context_hidden = context(encoder_hidden, context_hidden)
-        next_sentence = training_data[index+1]
-        model_predict = []
-        for di in range(len(next_sentence)):
-            predict_count += 1
-            decoder_output, decoder_hidden = decoder(context_hidden,\
-                    decoder_input, decoder_hidden)
-            loss += criterion(decoder_output[0], next_sentence[di])
-            # Scheduled Sampling
-            _, topi = decoder_output.data.topk(1)
-            ni = topi[0][0]
-            ni_var = Variable(torch.LongTensor([[ni]]))
-            if torch.cuda.is_available():
-                ni_var = ni_var.cuda()
-            model_predict.append(ni_var)
-            if random.random() < teacher_forcing_ratio:
-                decoder_input = next_sentence[di].unsqueeze(1)
-            else:
-                decoder_input = ni_var
-
-    loss.backward()
-    torch.nn.utils.clip_grad_norm(encoder.parameters(), args.clip)
-    torch.nn.utils.clip_grad_norm(context.parameters(), args.clip)
-    torch.nn.utils.clip_grad_norm(decoder.parameters(), args.clip)
-    encoder_optimizer.step()
-    context_optimizer.step()
-    decoder_optimizer.step()
-
-    return loss.data[0] / (predict_count)
-
-def validation(validation_data):
-    validation_loss = 0
-    for dialog in validation_data:
-        
-        context_hidden = context.init_hidden()
-        
-        predict_count = 0
-
-        loss = 0
-
-        gen_sentence = []
-        for index, sentence in enumerate(dialog):
-            if index == len(dialog) - 1:
-                break
-            decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
-            decoder_input = check_cuda_for_var(decoder_input)
-            encoder_hidden = encoder.init_hidden()
-            decoder_hidden = decoder.init_hidden()
-            if len(gen_sentence) > 0:
-                for ei in range(len(gen_sentence)):
-                    _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
-                # Clean generated sentence list
-                gen_sentence = []
-            else:
-                for ei in range(len(sentence)):
-                    _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-            context_output, context_hidden = context(encoder_hidden, context_hidden)
-            next_sentence = dialog[index+1]
-            for di in range(len(next_sentence)):
-                predict_count += 1
-                gen_sentence.append(decoder_input.data[0][0])
-                decoder_output, decoder_hidden = decoder(context_hidden,\
-                        decoder_input, decoder_hidden)
-                loss += criterion(decoder_output[0], next_sentence[di])
-                # TODO Greedy alg. now, maybe use beam search when inferencing in the future
-                _, topi = decoder_output.data.topk(1)
-                ni = topi[0][0]
-                #if ni == 1: # EOS
-                #    break
-                decoder_input = Variable(torch.LongTensor([[ni]]))
-                if torch.cuda.is_available():
-                    decoder_input = decoder_input.cuda()
-            # Make gen_sentence concated with a EOS and make it torch Variable
-            gen_sentence.append(my_lang.word2index["EOS"])
-            gen_sentence = Variable(torch.LongTensor(gen_sentence))
-            if torch.cuda.is_available():
-                gen_sentence = gen_sentence.cuda()
-
-        validation_loss += (loss.data[0] / predict_count)
-
-    return validation_loss / len(validation_data)
-
 since = time.time()
 
 best_validation_score = 10000
@@ -304,7 +194,9 @@ for epoch in range(1, args.epochs + 1):
         for index, dialog in enumerate(training_data[:10]):
             if args.ss:
                 teacher_forcing_ratio *= 0.99999
-            training_loss += train(dialog)
+            training_loss += train(my_lang, criterion, teacher_forcing_ratio,\
+                    dialog, encoder, context, decoder, \
+                    encoder_optimizer, context_optimizer, decoder_optimizer)
             sample(dialog, encoder, context, decoder)
             if (index) % 500 == 0:
                 print("    @ Iter [", index + 1, "/", len(training_data),"] | avg. loss: ", training_loss / (index + 1), \
@@ -313,7 +205,9 @@ for epoch in range(1, args.epochs + 1):
                 iter_since = time.time()
             if (index + 1) % 2000 == 0:
                 val_since = time.time()
-                validation_score_100 = validation(validation_data[:100])
+                validation_score_100 = validate(my_lang, criterion, teacher_forcing_ratio, \
+                        validation_data[:100], encoder, context, decoder, \
+                        encoder_optimizer, context_optimizer, decoder_optimizer)
                 print("    @ Val. [", index + 1, "/", len(training_data),"] | avg. val. loss: ", validation_score_100, \
                         " | perplexity: ", math.exp(validation_score_100)," | usage ", time.time() - val_since, " seconds")
                 print("    % Best validation score: ", best_validation_score)
@@ -329,7 +223,9 @@ for epoch in range(1, args.epochs + 1):
                     best_validation_score = validation_score_100
                 print("    % After validation best validation score: ", best_validation_score)
         '''
-        validation_score = validation(validation_data)
+        validation_score = validate(my_lang, criterion, teacher_forcing_ratio, \
+                validation_data, encoder, context, decoder, \
+                encoder_optimizer, context_optimizer, decoder_optimizer)
         save_training_loss.append(training_loss / (index + 1))
         save_validation_loss.append(validation_score)
         save_loss(save_training_loss, save_validation_loss)
