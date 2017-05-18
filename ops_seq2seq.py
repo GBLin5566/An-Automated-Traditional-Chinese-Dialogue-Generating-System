@@ -65,7 +65,7 @@ def validate(my_lang, criterion, validation_data, encoder, decoder):
     predict_num = 0
     for dialog in validation_data:
         for index, sentence in enumerate(dialog):
-            if index == len(training_data) - 1:
+            if index == len(dialog) - 1:
                 break
             loss = 0
 
@@ -81,7 +81,7 @@ def validate(my_lang, criterion, validation_data, encoder, decoder):
 
             decoder_hidden = encoder_hidden
 
-            next_sentence = training_data[index+1]
+            next_sentence = dialog[index+1]
             for di in range(len(next_sentence)):
                 decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, \
                         encoder_output, encoder_outputs)
