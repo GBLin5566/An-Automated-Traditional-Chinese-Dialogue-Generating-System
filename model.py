@@ -99,15 +99,18 @@ class DecoderRNN(nn.Module):
         return output, hidden
 
 class DecoderRNNSeq(nn.Module):
-    """Seq2seq's Decoder RNN Building"""
-    def __init__(self, hidden_size, output_size, n_layers, dropout):
+    """Seq2seq's Attention Decoder RNN Building"""
+    def __init__(self, hidden_size, output_size, n_layers, dropout, max_length):
         super(DecoderRNN, self).__init__()
 
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.n_layers = n_layers
+        self.max_length = max_length
+
         self.embedding = nn.Embedding(output_size, hidden_size)
-        
+        self.attn = nn.Linear(hidden_size * 2, max_length)
+        self.attn_combine = nn.Linear(hidden_size * 2, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
 
@@ -125,8 +128,15 @@ class DecoderRNNSeq(nn.Module):
         self.out.weight.data.uniform_(-initrange, initrange)
         self.embedding.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self,  input, hidden):
+    def forward(self,  input, hidden, encoder_outputs):
         embedded = self.embedding(input).view(1, 1, -1)
+
+        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)))
+        attn_applied = torch.bmm(attn_weights.unsqueeze(0), encoder_outputs.unsqueeze(0))
+
+        output = torch.cat((embedded[0], attn_applied[0]), 1)
+        output = self.attn_combine(output).unsqueeze(0)
+
         output, hidden = self.gru(embedded, hidden)
-        output = F.softmax(self.out(output[0]))
-        return output, hidden
+        output = F.log_softmax(self.out(output[0]))
+        return output, hidden, attn_weights

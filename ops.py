@@ -30,13 +30,13 @@ def train(my_lang, criterion, teacher_forcing_ratio, \
         decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
         decoder_input = check_cuda_for_var(decoder_input)
         encoder_hidden = encoder.init_hidden()
-        decoder_hidden = decoder.init_hidden()
         for ei in range(len(sentence)):
             if ei > len(model_predict) - 1 or random.random() < teacher_forcing_ratio:
                 _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
             else:
                 _, encoder_hidden = encoder(model_predict[ei], encoder_hidden)
-
+        # Assign last encoder's hidden to decoder
+        decoder_hidden = encoder_hidden
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = training_data[index+1]
         model_predict = []
@@ -83,7 +83,6 @@ def validate(my_lang, criterion, teacher_forcing_ratio, \
             decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             decoder_input = check_cuda_for_var(decoder_input)
             encoder_hidden = encoder.init_hidden()
-            decoder_hidden = decoder.init_hidden()
             if len(gen_sentence) > 0:
                 for ei in range(len(gen_sentence)):
                     _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
@@ -92,6 +91,7 @@ def validate(my_lang, criterion, teacher_forcing_ratio, \
             else:
                 for ei in range(len(sentence)):
                     _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+            decoder_hidden = encoder_hidden
             context_output, context_hidden = context(encoder_hidden, context_hidden)
             next_sentence = dialog[index+1]
             for di in range(len(next_sentence)):
@@ -132,7 +132,6 @@ def sample(my_lang, dialog, encoder, context, decoder):
         decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
         decoder_input = check_cuda_for_var(decoder_input)
         encoder_hidden = encoder.init_hidden()
-        decoder_hidden = decoder.init_hidden()
         if len(gen_sentence) > 0:
             for ei in range(len(gen_sentence)):
                 _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
@@ -141,6 +140,7 @@ def sample(my_lang, dialog, encoder, context, decoder):
         else:
             for ei in range(len(sentence)):
                 _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+        decoder_hidden = encoder_hidden
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = dialog[index+1]
         for di in range(len(next_sentence)):
