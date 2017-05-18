@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Operations for model'''
+'''Operations for h-rnn model'''
 import random
 
 import torch
