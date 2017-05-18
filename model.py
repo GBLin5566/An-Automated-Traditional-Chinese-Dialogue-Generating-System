@@ -101,7 +101,7 @@ class DecoderRNN(nn.Module):
 class DecoderRNNSeq(nn.Module):
     """Seq2seq's Attention Decoder RNN Building"""
     def __init__(self, hidden_size, output_size, n_layers, dropout, max_length):
-        super(DecoderRNN, self).__init__()
+        super(DecoderRNNSeq, self).__init__()
 
         self.hidden_size = hidden_size
         self.output_size = output_size
