@@ -48,6 +48,8 @@ class Lang:
 
         self.word2index = new_word2index
         self.index2word = new_index2word
+        self.word2index['\n'] = '\n'
+        self.index2word['\n'] = '\n'
 
         print("Prune ", prune_num, " words")
         print("After prune dict size ", len(self.word2index))

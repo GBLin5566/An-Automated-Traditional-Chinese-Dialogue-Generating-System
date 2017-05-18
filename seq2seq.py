@@ -84,6 +84,7 @@ random.seed(args.seed)
 check_directory(args.save)
 # Read data
 my_lang, document_list = utils.build_lang(args.data)
+max_length = 16
 random.shuffle(document_list)
 if args.limit != 0:
     document_list = document_list[:args.limit]
@@ -101,13 +102,12 @@ if args.test:
         decoder = decoder.cuda()
     
     for dialog in validation_data:
-        sample(my_lang, dialog, encoder, decoder)
+        sample(my_lang, dialog, encoder, decoder, max_length)
         time.sleep(3)
 
     sys.exit(0)
 
 learning_rate = args.lr
-max_length = 16
 criterion = nn.NLLLoss()
 if not args.restore:
     encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
@@ -159,16 +159,16 @@ for epoch in range(1, args.epochs + 1):
             training_loss += train(my_lang, criterion, teacher_forcing_ratio,\
                     dialog, encoder, decoder, \
                     encoder_optimizer, decoder_optimizer, max_length)
-            sample(my_lang, dialog, encoder, decoder)
             if (index) % 100 == 0:
                 print("    @ Iter [", index + 1, "/", len(training_data),"] | avg. loss: ", training_loss / (index + 1), \
                         " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds | teacher_force: ", \
                         teacher_forcing_ratio)
+                sample(my_lang, dialog, encoder, decoder, max_length)
                 iter_since = time.time()
             if (index + 1) % 2000 == 0:
                 val_since = time.time()
                 validation_score_100 = validate(my_lang, criterion,
-                        validation_data[:100], encoder, decoder)
+                        validation_data[:100], encoder, decoder, max_length)
                 print("    @ Val. [", index + 1, "/", len(training_data),"] | avg. val. loss: ", validation_score_100, \
                         " | perplexity: ", math.exp(validation_score_100)," | usage ", time.time() - val_since, " seconds")
                 print("    % Best validation score: ", best_validation_score)
@@ -184,7 +184,7 @@ for epoch in range(1, args.epochs + 1):
                     best_validation_score = validation_score_100
                 print("    % After validation best validation score: ", best_validation_score)
         validation_score = validate(my_lang, criterion, \
-                validation_data, encoder, decoder)
+                validation_data, encoder, decoder, max_length)
         save_training_loss.append(training_loss / (index + 1))
         save_validation_loss.append(validation_score)
         save_loss(save_training_loss, save_validation_loss)
