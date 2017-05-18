@@ -60,9 +60,39 @@ def train(my_lang, criterion, teacher_forcing_ratio, \
     
     return total_loss.data[0] / predict_num
 
-def validate(my_lang, criterion, teacher_forcing_ratio, \
-        validation_data, encoder, decoder,\
-        encoder_optimizer, decoder_optimizer):
-    return 0
+def validate(my_lang, criterion, validation_data, encoder, decoder):
+    total_loss = 0
+    predict_num = 0
+    for dialog in validation_data:
+        for index, sentence in enumerate(dialog):
+            if index == len(training_data) - 1:
+                break
+            loss = 0
+
+            encoder_hidden = encoder.init_hidden()
+            encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
+            decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
+            encoder_outputs = check_cuda_for_var(encoder_outputs)
+            decoder_input = check_cuda_for_var(decoder_input)
+
+            for ei in range(len(sentence)):
+                encoder_output, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+                encoder_outputs[ei] = encoder_output[0][0]
+
+            decoder_hidden = encoder_hidden
+
+            next_sentence = training_data[index+1]
+            for di in range(len(next_sentence)):
+                decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, \
+                        encoder_output, encoder_outputs)
+                loss += criterion(decoder_output[0], next_sentence[di])
+                predict_num += 1
+                topv, topi = decoder_output.data.topk(1)
+                ni = topi[0][0]
+
+                decoder_input = Variable(torch.LongTensor([[ni]]))
+                decoder_input = check_cuda_for_var(decoder_input)
+            total_loss += loss
+    return total_loss.data[0] / predict_num
 def sample(my_lang, dialog, encoder, decoder):
     pass

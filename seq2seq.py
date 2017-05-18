@@ -72,7 +72,11 @@ parser.add_argument('--test', dest='test', action='store_true',
 parser.set_defaults(test=False)
 parser.add_argument('--limit', type=int, default=0,
         help='limit the size of whole data set')
+parser.add_argument('--restore', dest='restore', action='store_true',
+        help='Reload the saved model')
+parser.set_defaults(restore=False)
 args = parser.parse_args()
+
 
 torch.manual_seed(args.seed)
 random.seed(args.seed)
@@ -104,17 +108,23 @@ if args.test:
 
 learning_rate = args.lr
 max_length = 16
-encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
-        args.encoder_layer, args.dropout)
-decoder = model.DecoderRNNSeq(args.decoder_hidden, len(my_lang.word2index), \
-        args.decoder_layer, args.dropout, max_length)
 criterion = nn.NLLLoss()
+if not args.restore:
+    encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
+            args.encoder_layer, args.dropout)
+    decoder = model.DecoderRNNSeq(args.decoder_hidden, len(my_lang.word2index), \
+            args.decoder_layer, args.dropout, max_length)
+else:
+    number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
+    encoder = torch.load(os.path.join(args.save, 'encoder'+str(number)+'.pt'))
+    decoder = torch.load(os.path.join(args.save, 'decoder'+str(number)+'.pt'))
 if torch.cuda.is_available():
     encoder = encoder.cuda()
     decoder = decoder.cuda()
     criterion = criterion.cuda()
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+
 if args.tie:
     # Tying two Embedding matrix and output Linear layer
     # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
@@ -150,16 +160,15 @@ for epoch in range(1, args.epochs + 1):
                     dialog, encoder, decoder, \
                     encoder_optimizer, decoder_optimizer, max_length)
             sample(my_lang, dialog, encoder, decoder)
-            if (index) % 10 == 0:
+            if (index) % 100 == 0:
                 print("    @ Iter [", index + 1, "/", len(training_data),"] | avg. loss: ", training_loss / (index + 1), \
                         " | perplexity: ", math.exp(training_loss / (index + 1))," | usage ", time.time() - iter_since, " seconds | teacher_force: ", \
                         teacher_forcing_ratio)
                 iter_since = time.time()
             if (index + 1) % 2000 == 0:
                 val_since = time.time()
-                validation_score_100 = validate(my_lang, criterion, teacher_forcing_ratio, \
-                        validation_data[:100], encoder, decoder, \
-                        encoder_optimizer, decoder_optimizer)
+                validation_score_100 = validate(my_lang, criterion,
+                        validation_data[:100], encoder, decoder)
                 print("    @ Val. [", index + 1, "/", len(training_data),"] | avg. val. loss: ", validation_score_100, \
                         " | perplexity: ", math.exp(validation_score_100)," | usage ", time.time() - val_since, " seconds")
                 print("    % Best validation score: ", best_validation_score)
@@ -174,9 +183,8 @@ for epoch in range(1, args.epochs + 1):
                     patient = 10
                     best_validation_score = validation_score_100
                 print("    % After validation best validation score: ", best_validation_score)
-        validation_score = validate(my_lang, criterion, teacher_forcing_ratio, \
-                validation_data, encoder, decoder, \
-                encoder_optimizer, decoder_optimizer)
+        validation_score = validate(my_lang, criterion, \
+                validation_data, encoder, decoder)
         save_training_loss.append(training_loss / (index + 1))
         save_validation_loss.append(validation_score)
         save_loss(save_training_loss, save_validation_loss)
