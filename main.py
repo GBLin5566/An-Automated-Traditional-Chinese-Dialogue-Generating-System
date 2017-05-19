@@ -30,13 +30,13 @@ parser.add_argument('--data', type=str,
         help='location of the data corpus(json file)')
 parser.add_argument('--validation_p', type=float, default=0.2,
         help='percentage of validation data / all data')
-parser.add_argument('--embedsize', type=int, default=100,
+parser.add_argument('--embedsize', type=int, default=250,
         help='size of word embeddings')
-parser.add_argument('--encoder_hidden', type=int, default=100,
+parser.add_argument('--encoder_hidden', type=int, default=250,
         help='number of hidden units per layer in encoder')
-parser.add_argument('--context_hidden', type=int, default=100,
+parser.add_argument('--context_hidden', type=int, default=250,
         help='number of hidden units per layer in context rnn')
-parser.add_argument('--decoder_hidden', type=int, default=100,
+parser.add_argument('--decoder_hidden', type=int, default=250,
         help='number of hidden units per layer in decoder')
 parser.add_argument('--encoder_layer', type=int, default=2,
         help='number of layers in encoder')
@@ -133,8 +133,10 @@ if args.tie:
 since = time.time()
 
 best_validation_score = 10000
+best_validation_score_100 = 10000
 patient = 10
 model_number = 0
+teacher_lazy_period = 20
 if args.teacher:
     teacher_forcing_ratio = 1.
 else:
@@ -154,7 +156,7 @@ for epoch in range(1, args.epochs + 1):
     try:
         for index, dialog in enumerate(training_data):
             if args.ss:
-                teacher_forcing_ratio *= 0.99999
+                teacher_forcing_ratio = (teacher_lazy_period - epoch + 1) / teacher_lazy_period
             training_loss += train(my_lang, criterion, teacher_forcing_ratio,\
                     dialog, encoder, context, decoder, \
                     encoder_optimizer, context_optimizer, decoder_optimizer)
@@ -171,9 +173,9 @@ for epoch in range(1, args.epochs + 1):
                         encoder_optimizer, context_optimizer, decoder_optimizer)
                 print("    @ Val. [", index + 1, "/", len(training_data),"] | avg. val. loss: ", validation_score_100, \
                         " | perplexity: ", math.exp(validation_score_100)," | usage ", time.time() - val_since, " seconds")
-                print("    % Best validation score: ", best_validation_score)
-                if validation_score_100 < best_validation_score:
-                    best_validation_score = validation_score_100
+                print("    % Best validation score: ", best_validation_score_100)
+                if validation_score_100 < best_validation_score_100:
+                    best_validation_score_100 = validation_score_100
                     patient = 5
                 elif patient > 0:
                     patient -= 1
@@ -181,8 +183,8 @@ for epoch in range(1, args.epochs + 1):
                     print("****Learining rate decay****")
                     learning_rate /= 2.
                     patient = 10
-                    best_validation_score = validation_score_100
-                print("    % After validation best validation score: ", best_validation_score)
+                    best_validation_score_100 = validation_score_100
+                print("    % After validation best validation score: ", best_validation_score_100)
         validation_score = validate(my_lang, criterion, teacher_forcing_ratio, \
                 validation_data, encoder, context, decoder, \
                 encoder_optimizer, context_optimizer, decoder_optimizer)

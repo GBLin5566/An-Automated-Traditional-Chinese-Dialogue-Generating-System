@@ -40,6 +40,7 @@ def train(my_lang, criterion, teacher_forcing_ratio, \
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = training_data[index+1]
         model_predict = []
+        teacher_forcing = random.random() < teacher_forcing_ratio
         for di in range(len(next_sentence)):
             predict_count += 1
             decoder_output, decoder_hidden = decoder(context_hidden,\
@@ -52,7 +53,7 @@ def train(my_lang, criterion, teacher_forcing_ratio, \
             if torch.cuda.is_available():
                 ni_var = ni_var.cuda()
             model_predict.append(ni_var)
-            if random.random() < teacher_forcing_ratio:
+            if teacher_forcing:
                 decoder_input = next_sentence[di].unsqueeze(1)
             else:
                 decoder_input = ni_var
