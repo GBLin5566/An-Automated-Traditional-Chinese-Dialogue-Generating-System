@@ -14,6 +14,9 @@ def train(my_lang, criterion, teacher_forcing_ratio, \
         encoder_optimizer, decoder_optimizer, max_length):
     total_loss = 0
     predict_num = 0
+    # Training mode
+    encoder.train()
+    decoder.train()
     for index, sentence in enumerate(training_data):
         if index == len(training_data) - 1:
             break
@@ -63,6 +66,9 @@ def train(my_lang, criterion, teacher_forcing_ratio, \
 def validate(my_lang, criterion, validation_data, encoder, decoder, max_length):
     total_loss = 0
     predict_num = 0
+    # Eval mode
+    encoder.eval()
+    decoder.eval()
     for counter, dialog in enumerate(validation_data):
         if counter == len(validation_data) - 1:
             sample(my_lang, dialog, encoder, decoder, max_length)
@@ -97,6 +103,9 @@ def validate(my_lang, criterion, validation_data, encoder, decoder, max_length):
             total_loss += loss
     return total_loss.data[0] / predict_num
 def sample(my_lang, dialog, encoder, decoder, max_length):
+    # Eval mode
+    encoder.eval()
+    decoder.eval()
     print("Golden ->")
     for sentence in dialog:
         string = ' '.join([my_lang.index2word[word.data[0]] for word in sentence])

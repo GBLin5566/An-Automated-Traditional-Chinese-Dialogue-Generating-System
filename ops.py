@@ -10,6 +10,10 @@ from utils import check_cuda_for_var
 def train(my_lang, criterion, teacher_forcing_ratio, \
         training_data, encoder, context, decoder,\
         encoder_optimizer, context_optimizer, decoder_optimizer):
+    # Training mode
+    encoder.train()
+    context.train()
+    decoder.train()
     # Zero gradients
     encoder_optimizer.zero_grad()
     context_optimizer.zero_grad()
@@ -30,13 +34,14 @@ def train(my_lang, criterion, teacher_forcing_ratio, \
         decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
         decoder_input = check_cuda_for_var(decoder_input)
         encoder_hidden = encoder.init_hidden()
+        decoder_hidden = decoder.init_hidden()
         for ei in range(len(sentence)):
             if ei > len(model_predict) - 1 or random.random() < teacher_forcing_ratio:
                 _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
             else:
                 _, encoder_hidden = encoder(model_predict[ei], encoder_hidden)
         # Assign last encoder's hidden to decoder
-        decoder_hidden = encoder_hidden
+        # decoder_hidden = encoder_hidden
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = training_data[index+1]
         model_predict = []
@@ -69,6 +74,10 @@ def validate(my_lang, criterion, teacher_forcing_ratio, \
         validation_data, encoder, context, decoder,\
         encoder_optimizer, context_optimizer, decoder_optimizer):
     validation_loss = 0
+    # Eval mode
+    encoder.eval()
+    context.eval()
+    decoder.eval()
     for dialog in validation_data:
 
         context_hidden = context.init_hidden()
@@ -84,6 +93,7 @@ def validate(my_lang, criterion, teacher_forcing_ratio, \
             decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             decoder_input = check_cuda_for_var(decoder_input)
             encoder_hidden = encoder.init_hidden()
+            decoder_hidden = decoder.init_hidden()
             if len(gen_sentence) > 0:
                 for ei in range(len(gen_sentence)):
                     _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
@@ -92,7 +102,7 @@ def validate(my_lang, criterion, teacher_forcing_ratio, \
             else:
                 for ei in range(len(sentence)):
                     _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-            decoder_hidden = encoder_hidden
+            # decoder_hidden = encoder_hidden
             context_output, context_hidden = context(encoder_hidden, context_hidden)
             next_sentence = dialog[index+1]
             for di in range(len(next_sentence)):
@@ -120,6 +130,10 @@ def validate(my_lang, criterion, teacher_forcing_ratio, \
     return validation_loss / len(validation_data)
 
 def sample(my_lang, dialog, encoder, context, decoder):
+    # Eval mode
+    encoder.eval()
+    context.eval()
+    decoder.eval()
     print("Golden ->")
     for sentence in dialog:
         string = ' '.join([my_lang.index2word[word.data[0]] for word in sentence])
@@ -133,6 +147,7 @@ def sample(my_lang, dialog, encoder, context, decoder):
         decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
         decoder_input = check_cuda_for_var(decoder_input)
         encoder_hidden = encoder.init_hidden()
+        decoder_hidden = decoder.init_hidden()
         if len(gen_sentence) > 0:
             for ei in range(len(gen_sentence)):
                 _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
@@ -141,7 +156,7 @@ def sample(my_lang, dialog, encoder, context, decoder):
         else:
             for ei in range(len(sentence)):
                 _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-        decoder_hidden = encoder_hidden
+        # decoder_hidden = encoder_hidden
         context_output, context_hidden = context(encoder_hidden, context_hidden)
         next_sentence = dialog[index+1]
         for di in range(len(next_sentence)):

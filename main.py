@@ -49,11 +49,11 @@ parser.add_argument('--tie', dest='tie', action='store_true',
 parser.add_argument('--no-tie', dest='tie', action='store_false',
         help='don\'t tie the weight of embedding and output linear')
 parser.set_defaults(tie=True)
-parser.add_argument('--lr', type=float, default=0.01,
+parser.add_argument('--lr', type=float, default=0.001,
         help='initial learning rate')
 parser.add_argument('--clip', type=float, default=5.0,
         help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=1000,
+parser.add_argument('--epochs', type=int, default=100,
         help='upper epoch limit')
 parser.add_argument('--dropout', type=float, default=0.25,
         help='dropout applied to layers (0 = no dropout)')
@@ -136,7 +136,7 @@ best_validation_score = 10000
 best_validation_score_100 = 10000
 patient = 10
 model_number = 0
-teacher_lazy_period = 20
+teacher_lazy_period = 40
 if args.teacher:
     teacher_forcing_ratio = 1.
 else:
