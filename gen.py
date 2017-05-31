@@ -66,7 +66,8 @@ if args.type == "hrnn":
         gen_sentence = []
         talking_history = []
         context_hidden = context.init_hidden()
-        while True:
+        counter = 0
+        while counter < 10:
             decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             decoder_input = check_cuda_for_var(decoder_input)
             encoder_hidden = encoder.init_hidden()
@@ -98,6 +99,7 @@ if args.type == "hrnn":
             talking_history.append(string)
             if "EOD" in string:
                 break
+            counter += 1
         return talking_history
 else:
     # Load last model

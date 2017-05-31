@@ -76,6 +76,9 @@ parser.add_argument('--test', dest='test', action='store_true',
 parser.set_defaults(test=False)
 parser.add_argument('--limit', type=int, default=0,
         help='limit the size of whole data set')
+parser.add_argument('--restore', dest='restore', action='store_true',
+        help='Reload the saved model')
+parser.set_defaults(restore=False)
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -109,13 +112,25 @@ if args.test:
     sys.exit(0)
 
 learning_rate = args.lr
-encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
-        args.encoder_layer, args.dropout)
-context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.context_hidden, \
-        args.context_layer, args.dropout)
-decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
-        len(my_lang.word2index), args.decoder_layer, args.dropout)
 criterion = nn.NLLLoss()
+if not args.restore:
+    encoder = model.EncoderRNN(len(my_lang.word2index), args.encoder_hidden, \
+            args.encoder_layer, args.dropout)
+    context = model.ContextRNN(args.encoder_hidden * args.encoder_layer, args.context_hidden, \
+            args.context_layer, args.dropout)
+    decoder = model.DecoderRNN(args.context_hidden * args.context_layer, args.decoder_hidden, \
+            len(my_lang.word2index), args.decoder_layer, args.dropout)
+else:
+    print("Load last model in %s" % (args.save))
+    number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
+    encoder = torch.load(os.path.join(args.save, 'encoder'+str(number)+'.pt'))
+    context = torch.load(os.path.join(args.save, 'context'+str(number)+'.pt'))
+    decoder = torch.load(os.path.join(args.save, 'decoder'+str(number)+'.pt'))
+    if torch.cuda.is_available():
+        encoder = encoder.cuda()
+        context = context.cuda()
+        decoder = decoder.cuda()
+
 if torch.cuda.is_available():
     encoder = encoder.cuda()
     context = context.cuda()
