@@ -1,6 +1,7 @@
 """Data/Function utils"""
 import os
 import json
+import pickle
 
 import torch.cuda
 from torch.autograd import Variable
@@ -74,9 +75,17 @@ class Lang:
 def build_lang(json_path, dump_torch_variable=True):
     with open(json_path, 'r') as jsonfile:
         whole_list = json.load(jsonfile)
-    my_lang = Lang()
-    my_lang.build_dict(whole_list)
-    my_lang.prune_dict()
+    if os.path.isfile('dict.pkl'):
+        print("Load existing dict.pkl")
+        with open('dict.pkl', 'rb') as filename:
+            my_lang = pickle.load(filename)
+    else:
+        print("Build a new dict.pkl")
+        my_lang = Lang()
+        my_lang.build_dict(whole_list)
+        my_lang.prune_dict()
+        with open('dict.pkl', 'wb') as filename:
+            pickle.dump(my_lang, filename)
 
     document_list = []
     for sentences in tqdm(whole_list, desc='Indexing & Making torch variable'):
