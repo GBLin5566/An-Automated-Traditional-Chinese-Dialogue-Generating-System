@@ -191,14 +191,13 @@ for epoch in range(1, args.epochs + 1):
         print("# ", epoch, " | ", time.time() - since," seconds | validation loss: ", validation_score, " | validation perplexity: ", \
                 math.exp(validation_score))
         since = time.time()
-        if best_validation_score > validation_score:
-            model_number += 1
-            print("Saving better model number ",model_number)
-            best_validation_score = validation_score
-            torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
-            torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
-            torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
-    except ValueError:
+        model_number += 1
+        print("Saving better model number ",model_number)
+        best_validation_score = validation_score
+        torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
+        torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
+        torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
+    except:
         print(sys.exc_info())
         model_number += 1
         print("Get stopped, saving the latest model")
