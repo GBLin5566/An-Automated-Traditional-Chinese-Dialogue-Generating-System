@@ -121,9 +121,15 @@ def sample(my_lang, dialog, encoder, decoder, max_length):
         encoder_outputs = check_cuda_for_var(encoder_outputs)
         decoder_input = check_cuda_for_var(decoder_input)
 
-        for ei in range(len(sentence)):
-            encoder_output, encoder_hidden = encoder(sentence[ei], encoder_hidden)
-            encoder_outputs[ei] = encoder_output[0][0]
+        if len(gen_sentence) > 0:
+            for ei in range(len(gen_sentence)):
+                encoder_output, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
+                encoder_outputs[ei] = encoder_output[0][0]
+            gen_sentence = []
+        else:
+            for ei in range(len(sentence)):
+                encoder_output, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+                encoder_outputs[ei] = encoder_output[0][0]
 
         decoder_hidden = encoder_hidden
 
@@ -137,6 +143,8 @@ def sample(my_lang, dialog, encoder, decoder, max_length):
 
             decoder_input = Variable(torch.LongTensor([[ni]]))
             decoder_input = check_cuda_for_var(decoder_input)
-        gen_sentence.append('\n')
-    string = ' '.join([my_lang.index2word[word] for word in gen_sentence])
-    print(string)
+        gen_sentence.append(my_lang.word2index["EOS"])
+        gen_sentence = Variable(torch.LongTensor(gen_sentence))
+        gen_sentence = check_cuda_for_var(gen_sentence)
+        string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
+        print(string)

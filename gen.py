@@ -48,7 +48,7 @@ else:
     with open('dict.pkl', 'rb') as filename:
         my_lang = pickle.load(filename)
 if args.type == "hrnn":
-    # Load last model
+    # Load last HRNN model
     number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
     encoder = torch.load(os.path.join(args.save, 'encoder'+str(number)+'.pt'))
     context = torch.load(os.path.join(args.save, 'context'+str(number)+'.pt'))
@@ -102,14 +102,57 @@ if args.type == "hrnn":
             counter += 1
         return talking_history
 else:
-    # Load last model
+    # Load last Seq2seq model
     number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
     encoder = torch.load(os.path.join(args.save, 'encoder'+str(number)+'.pt'))
     decoder = torch.load(os.path.join(args.save, 'decoder'+str(number)+'.pt'))
     if torch.cuda.is_available():
         encoder = encoder.cuda()
         decoder = decoder.cuda()
+    def gen(sentence):
+        encoder.eval()
+        decoder.eval()
+        gen_sentence = []
+        counter = 0
+        while counter < 10:
+            encoder_hidden = encoder.init_hidden()
+            encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
+            decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
+            encoder_outputs = check_cuda_for_var(encoder_outputs)
+            decoder_input = check_cuda_for_var(decoder_input)
 
+            if len(gen_sentence) > 0:
+                for ei in range(len(gen_sentence)):
+                    encoder_output, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
+                    encoder_outputs[ei] = encoder_output[0][0]
+                    # Clean generated sentence list
+                    gen_sentence = []
+            else:
+                for ei in range(len(sentence)):
+                    encoder_output, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+                    encoder_outputs[ei] = encoder_output[0][0]
+            decoder_hidden = encoder_hidden
+            di = 0
+            while True:
+                gen_sentence.append(decoder_input.data[0][0])
+                if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) > 15:
+                    break
+		decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, \
+			encoder_outputs)
+                _, topi = decoder_output.data.topk(1)
+                ni = topi[0][0]
+                decoder_input = Variable(torch.LongTensor([[ni]]))
+                decoder_input = check_cuda_for_var(decoder_input)
+            gen_sentence = Variable(torch.LongTensor(gen_sentence))
+            gen_sentence = check_cuda_for_var(gen_sentence)
+            string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
+            print(string)
+            talking_history.append(string)
+            if "EOD" in string:
+                break
+            counter += 1
+        return talking_history
+# Generating string
 try:
     while True:
         start = input("[%s] >>> " % (args.type.upper()))

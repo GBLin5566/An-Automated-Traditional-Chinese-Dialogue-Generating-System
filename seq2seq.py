@@ -198,7 +198,7 @@ for epoch in range(1, args.epochs + 1):
             torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
             torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
             torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
-    except:
+    except ValueError:
         print(sys.exc_info())
         model_number += 1
         print("Get stopped, saving the latest model")
