@@ -120,4 +120,3 @@ try:
         gen(clean_sentence_idx)
 except KeyboardInterrupt:
     print()
-    sys.exit(0)

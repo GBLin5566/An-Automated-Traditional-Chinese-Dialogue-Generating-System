@@ -129,15 +129,16 @@ def validate(my_lang, criterion, teacher_forcing_ratio, \
         
     return validation_loss / len(validation_data)
 
-def sample(my_lang, dialog, encoder, context, decoder):
+def sample(my_lang, dialog, encoder, context, decoder, print_golden=True):
     # Eval mode
     encoder.eval()
     context.eval()
     decoder.eval()
-    print("Golden ->")
-    for sentence in dialog:
-        string = ' '.join([my_lang.index2word[word.data[0]] for word in sentence])
-        print(string)
+    if print_golden:
+        print("Golden ->")
+        for sentence in dialog:
+            string = ' '.join([my_lang.index2word[word.data[0]] for word in sentence])
+            print(string)
     print("Predict ->")
     gen_sentence = []
     context_hidden = context.init_hidden()

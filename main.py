@@ -195,8 +195,8 @@ for epoch in range(1, args.epochs + 1):
                 elif patient > 0:
                     patient -= 1
                 else:
-                    print("****Learining rate decay****")
-                    learning_rate /= 2.
+                    #print("****Learining rate decay****")
+                    #learning_rate /= 2.
                     patient = 10
                     best_validation_score_100 = validation_score_100
                 print("    % After validation best validation score: ", best_validation_score_100)
@@ -209,14 +209,14 @@ for epoch in range(1, args.epochs + 1):
         print("# ", epoch, " | ", time.time() - since," seconds | validation loss: ", validation_score, " | validation perplexity: ", \
                 math.exp(validation_score))
         since = time.time()
-        if best_validation_score > validation_score:
-            model_number += 1
-            print("Saving better model number ",model_number)
-            best_validation_score = validation_score
-            torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
-            torch.save(context, os.path.join(args.save, "context" + str(model_number) + ".pt"))
-            torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
-            torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
+
+        model_number += 1
+        print("Saving better model number ",model_number)
+        best_validation_score = validation_score
+        torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
+        torch.save(context, os.path.join(args.save, "context" + str(model_number) + ".pt"))
+        torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
+        torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
     except:
         print(sys.exc_info())
         model_number += 1
