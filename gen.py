@@ -81,7 +81,6 @@ if args.type == "hrnn":
                 for ei in range(len(sentence)):
                     _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
             context_output, context_hidden = context(encoder_hidden, context_hidden)
-            di = 0
             while True:
                 gen_sentence.append(decoder_input.data[0][0])
                 if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) > 15:
@@ -110,8 +109,10 @@ else:
         encoder = encoder.cuda()
         decoder = decoder.cuda()
     def gen(sentence):
+        max_length = 16
         encoder.eval()
         decoder.eval()
+        talking_history = []
         gen_sentence = []
         counter = 0
         while counter < 10:
@@ -120,25 +121,23 @@ else:
             decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             encoder_outputs = check_cuda_for_var(encoder_outputs)
             decoder_input = check_cuda_for_var(decoder_input)
-
             if len(gen_sentence) > 0:
                 for ei in range(len(gen_sentence)):
                     encoder_output, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
                     encoder_outputs[ei] = encoder_output[0][0]
                     # Clean generated sentence list
-                    gen_sentence = []
+                gen_sentence = []
             else:
                 for ei in range(len(sentence)):
                     encoder_output, encoder_hidden = encoder(sentence[ei], encoder_hidden)
                     encoder_outputs[ei] = encoder_output[0][0]
             decoder_hidden = encoder_hidden
-            di = 0
             while True:
                 gen_sentence.append(decoder_input.data[0][0])
-                if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) > 15:
+                if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) >= max_length - 1:
                     break
-		decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, \
-			encoder_outputs)
+                decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, \
+                        encoder_outputs)
                 _, topi = decoder_output.data.topk(1)
                 ni = topi[0][0]
                 decoder_input = Variable(torch.LongTensor([[ni]]))
