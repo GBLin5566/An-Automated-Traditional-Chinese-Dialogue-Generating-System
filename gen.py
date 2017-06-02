@@ -81,6 +81,7 @@ if args.type == "hrnn":
                 for ei in range(len(sentence)):
                     _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
             context_output, context_hidden = context(encoder_hidden, context_hidden)
+            # TODO Beam search
             while True:
                 gen_sentence.append(decoder_input.data[0][0])
                 if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) > 15:
