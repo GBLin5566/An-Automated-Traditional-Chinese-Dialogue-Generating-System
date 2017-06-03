@@ -59,6 +59,8 @@ parser.add_argument('--dropout', type=float, default=0.25,
         help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--seed', type=int, default=55665566,
         help='random seed')
+parser.add_argument('--startepoch', type=int, default=0,
+        help='epoch\'s number when starting(for scheduled sampling\'s ratio)')
 parser.add_argument('--teacher', dest='teacher', action='store_true',
         help='teacher force')
 parser.add_argument('--no-teacher', dest='teacher', action='store_false',
@@ -165,7 +167,7 @@ def save_loss(train, val):
     with open(os.path.join(args.save, "loss.json"), "w") as outfile:
         json.dump([train, val], outfile)
 
-for epoch in range(1, args.epochs + 1):
+for epoch in range(args.startepoch + 1, args.epochs + 1):
     training_loss = 0
     iter_since = time.time()
     try:
