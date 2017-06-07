@@ -32,6 +32,8 @@ parser.add_argument('--save', type=str, default='model/',
         help='path to load the final model\'s directory')
 parser.add_argument('--seed', type=int, default=55665566,
         help='random seed')
+parser.add_argument('--beam', type=int, default=1,
+        help='beam size for beam search(default 1 will be greedy search)')
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -67,7 +69,7 @@ if args.type == "hrnn":
         talking_history = []
         context_hidden = context.init_hidden()
         counter = 0
-        beam_size = 5
+        beam_size = args.beam
         while counter < 10:
             decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             decoder_input = check_cuda_for_var(decoder_input)
