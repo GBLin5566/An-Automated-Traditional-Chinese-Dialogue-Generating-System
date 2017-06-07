@@ -67,6 +67,7 @@ if args.type == "hrnn":
         talking_history = []
         context_hidden = context.init_hidden()
         counter = 0
+        beam_size = 5
         while counter < 10:
             decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             decoder_input = check_cuda_for_var(decoder_input)
@@ -82,6 +83,8 @@ if args.type == "hrnn":
                     _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
             context_output, context_hidden = context(encoder_hidden, context_hidden)
             # TODO Beam search
+            # Take care of decoder_hidden
+            scores = check_cuda_for_var(torch.FloatTensor(beam_size).zero_())
             while True:
                 gen_sentence.append(decoder_input.data[0][0])
                 if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) > 15:

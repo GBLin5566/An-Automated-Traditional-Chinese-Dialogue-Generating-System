@@ -174,6 +174,8 @@ for epoch in range(args.startepoch + 1, args.epochs + 1):
         for index, dialog in enumerate(training_data):
             if args.ss:
                 teacher_forcing_ratio = (teacher_lazy_period - epoch + 1) / teacher_lazy_period
+                if teacher_forcing_ratio < 0.5:
+                    teacher_forcing_ratio = 0.5
             training_loss += train(my_lang, criterion, teacher_forcing_ratio,\
                     dialog, encoder, context, decoder, \
                     encoder_optimizer, context_optimizer, decoder_optimizer)
