@@ -68,9 +68,10 @@ if args.type == "hrnn":
         gen_sentence = []
         talking_history = []
         context_hidden = context.init_hidden()
-        counter = 0
+        max_dialog_len = 10
+        max_sentence_len = 15
         beam_size = args.beam
-        while counter < 10:
+        for _ in range(max_dialog_len):
             decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             decoder_input = check_cuda_for_var(decoder_input)
             encoder_hidden = encoder.init_hidden()
@@ -87,9 +88,9 @@ if args.type == "hrnn":
             # TODO Beam search
             # Take care of decoder_hidden
             scores = check_cuda_for_var(torch.FloatTensor(beam_size).zero_())
-            while True:
+            for sentence_pointer in range(max_sentence_len):
                 gen_sentence.append(decoder_input.data[0][0])
-                if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) > 15:
+                if gen_sentence[-1] == my_lang.word2index["EOS"]:
                     break
                 decoder_output, decoder_hidden = decoder(context_hidden,\
                         decoder_input, decoder_hidden)
@@ -104,7 +105,6 @@ if args.type == "hrnn":
             talking_history.append(string)
             if "EOD" in string:
                 break
-            counter += 1
         return talking_history
 else:
     # Load last Seq2seq model
