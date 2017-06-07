@@ -87,17 +87,49 @@ if args.type == "hrnn":
             context_output, context_hidden = context(encoder_hidden, context_hidden)
             # TODO Beam search
             # Take care of decoder_hidden
-            scores = check_cuda_for_var(torch.FloatTensor(beam_size).zero_())
+            index2state = {}
+            for index in range(beam_size):
+                index2state[index] = [decoder_input, decoder_hidden, [decoder_input.data[0][0]], 0.0]
+            # One step to get beam_size candidates
+            decoder_output, decoder_hidden = decoder(context_hidden,\
+                    decoder_input, decoder_hidden)
+            scores, topi = decoder_output.data.topk(beam_size)
+            for index in range(beam_size):
+                ni = topi[0][index]
+                index2state[index][0] = check_cuda_for_var(Variable(torch.LongTensor([[ni]])))
+                index2state[index][1] = decoder_hidden
+                index2state[index][2].append(ni)
+                index2state[index][3] = scores[0][index]
             for sentence_pointer in range(max_sentence_len):
-                gen_sentence.append(decoder_input.data[0][0])
-                if gen_sentence[-1] == my_lang.word2index["EOS"]:
+                current_scores = []
+                current2state = {}
+                # Init current2state
+                for index in range(beam_size):
+                    for jndex in range(beam_size):
+                        current2state[index * beam_size + jndex] = [0, 0, 0, 0]
+                for index in range(beam_size):
+                    output, hidden = decoder(context_hidden, \
+                            index2state[index][0], index2state[index][1])
+                    tops, topi = output.data.topk(beam_size)
+                    for jndex in range(beam_size):
+                        current_scores.append(tops[0][jndex] + index2state[index][3])
+                        ni = topi[0][jndex]
+                        current_map = current2state[index * beam_size + jndex]
+                        current_map[0] = check_cuda_for_var(Variable(torch.LongTensor([[ni]])))
+                        current_map[1] = hidden
+                        current_map[2] = index2state[index][2][:]
+                        current_map[2].append(ni)
+                        current_map[3] = tops[0][jndex] + index2state[index][3]
+                _, top_of_beamsize2 = torch.FloatTensor(current_scores).topk(beam_size)
+                # Top beam's output is eos, break and output the top beam
+                if current2state[top_of_beamsize2[0]][2][-1] == my_lang.word2index["EOS"]:
+                    gen_sentence = current2state[top_of_beamsize2[0]][2]
                     break
-                decoder_output, decoder_hidden = decoder(context_hidden,\
-                        decoder_input, decoder_hidden)
-                _, topi = decoder_output.data.topk(1)
-                ni = topi[0][0]
-                decoder_input = Variable(torch.LongTensor([[ni]]))
-                decoder_input = check_cuda_for_var(decoder_input)
+                after_beam_dict = {}
+                for index, candidate in enumerate(top_of_beamsize2):
+                    after_beam_dict[index] = current2state[candidate]
+                index2state = after_beam_dict
+            # Beam Search a good sentence and assign to gen_sentence
             gen_sentence = Variable(torch.LongTensor(gen_sentence))
             gen_sentence = check_cuda_for_var(gen_sentence)
             string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
