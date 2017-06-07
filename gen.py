@@ -41,6 +41,8 @@ random.seed(args.seed)
 
 if args.type != "hrnn" and args.type != "seq2seq":
     raise ValueError("args.type should be hrnn or seq2seq, but got %s" % (args.type))
+if args.beam <= 0:
+    raise ValueError("args.beam should be at least 1 or larger number")
 if not os.path.isfile('dict.pkl'):
     my_lang, _ = utils.build_lang(args.data)
     with open('dict.pkl', 'wb') as filename:
