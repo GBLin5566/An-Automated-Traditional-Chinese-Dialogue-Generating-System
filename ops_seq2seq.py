@@ -76,17 +76,16 @@ def validate(my_lang, criterion, validation_data, encoder, decoder, max_length):
             if index == len(dialog) - 1:
                 break
             loss = 0
-
             encoder_hidden = encoder.init_hidden()
             encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
             decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
             encoder_outputs = check_cuda_for_var(encoder_outputs)
             decoder_input = check_cuda_for_var(decoder_input)
-
+            
             for ei in range(len(sentence)):
                 encoder_output, encoder_hidden = encoder(sentence[ei], encoder_hidden)
                 encoder_outputs[ei] = encoder_output[0][0]
-
+            
             decoder_hidden = encoder_hidden
 
             next_sentence = dialog[index+1]
@@ -100,8 +99,11 @@ def validate(my_lang, criterion, validation_data, encoder, decoder, max_length):
 
                 decoder_input = Variable(torch.LongTensor([[ni]]))
                 decoder_input = check_cuda_for_var(decoder_input)
-            total_loss += loss
-    return total_loss.data[0] / predict_num
+            if isinstance(loss, float):
+                total_loss += loss
+            else:
+                total_loss += loss.data[0]
+    return total_loss / predict_num
 def sample(my_lang, dialog, encoder, decoder, max_length):
     # Eval mode
     encoder.eval()

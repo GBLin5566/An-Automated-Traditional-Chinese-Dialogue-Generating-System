@@ -30,11 +30,11 @@ parser.add_argument('--data', type=str,
         help='location of the data corpus(json file)')
 parser.add_argument('--validation_p', type=float, default=0.2,
         help='percentage of validation data / all data')
-parser.add_argument('--embedsize', type=int, default=100,
+parser.add_argument('--embedsize', type=int, default=250,
         help='size of word embeddings')
-parser.add_argument('--encoder_hidden', type=int, default=100,
+parser.add_argument('--encoder_hidden', type=int, default=250,
         help='number of hidden units per layer in encoder')
-parser.add_argument('--decoder_hidden', type=int, default=100,
+parser.add_argument('--decoder_hidden', type=int, default=250,
         help='number of hidden units per layer in decoder')
 parser.add_argument('--encoder_layer', type=int, default=2,
         help='number of layers in encoder')
@@ -84,7 +84,7 @@ random.seed(args.seed)
 check_directory(args.save)
 # Read data
 my_lang, document_list = utils.build_lang(args.data)
-max_length = 16
+max_length = 20
 random.shuffle(document_list)
 if args.limit != 0:
     document_list = document_list[:args.limit]
@@ -197,7 +197,7 @@ for epoch in range(1, args.epochs + 1):
         torch.save(encoder, os.path.join(args.save, "encoder" + str(model_number) + ".pt"))
         torch.save(decoder, os.path.join(args.save, "decoder" + str(model_number) + ".pt"))
         torch.save(model_number, os.path.join(args.save, "checkpoint.pt"))
-    except:
+    except ValueError:
         print(sys.exc_info())
         model_number += 1
         print("Get stopped, saving the latest model")

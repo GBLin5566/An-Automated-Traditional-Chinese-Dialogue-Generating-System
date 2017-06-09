@@ -87,8 +87,7 @@ if args.type == "hrnn":
                 for ei in range(len(sentence)):
                     _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
             context_output, context_hidden = context(encoder_hidden, context_hidden)
-            # TODO Beam search
-            # Take care of decoder_hidden
+            # Beam search
             index2state = {}
             for index in range(beam_size):
                 index2state[index] = [decoder_input, decoder_hidden, [decoder_input.data[0][0]], 0.0]
@@ -125,7 +124,8 @@ if args.type == "hrnn":
                 _, top_of_beamsize2 = torch.FloatTensor(current_scores).topk(beam_size)
                 # Top beam's output is eos, break and output the top beam
                 if current2state[top_of_beamsize2[0]][2][-1] == my_lang.word2index["EOS"]:
-                    gen_sentence = current2state[top_of_beamsize2[0]][2]
+                    first_eos = current2state[top_of_beamsize2[0]][2].index(my_lang.word2index["EOS"])
+                    gen_sentence = current2state[top_of_beamsize2[0]][2][:first_eos+1]
                     break
                 after_beam_dict = {}
                 for index, candidate in enumerate(top_of_beamsize2):
@@ -134,6 +134,7 @@ if args.type == "hrnn":
             # Beam Search a good sentence and assign to gen_sentence
             gen_sentence = Variable(torch.LongTensor(gen_sentence))
             gen_sentence = check_cuda_for_var(gen_sentence)
+            # TODO input "訂餐廳" will get a error
             string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
             print(string)
             talking_history.append(string)
