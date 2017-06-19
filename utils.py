@@ -96,13 +96,17 @@ def build_lang(json_path, dump_torch_variable=True):
                         sentence)))
                 if torch.cuda.is_available():
                     sentence = sentence.cuda()
+            else:
+                sentence = my_lang.sentence2index(sentence)
             dialog.append(sentence)
         # Make dialog end with a special mark EOD
-        end_of_dialog = []
-        eod_var = Variable(torch.LongTensor(my_lang.sentence2index(\
-                ["EOD"])))
-        if torch.cuda.is_available():
-            eod_var = eod_var.cuda()
+        if dump_torch_variable:
+            eod_var = Variable(torch.LongTensor(my_lang.sentence2index(\
+                    ["EOD"])))
+            if torch.cuda.is_available():
+                eod_var = eod_var.cuda()
+        else:
+            eod_var = my_lang.sentence2index(["EOD"])
         dialog.append(eod_var)
         document_list.append(dialog)
     return my_lang, document_list

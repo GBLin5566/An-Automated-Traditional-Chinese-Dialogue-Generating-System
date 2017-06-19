@@ -136,6 +136,7 @@ since = time.time()
 best_validation_score = 10000
 patient = 10
 model_number = 0
+teacher_lazy_period = 40
 if args.teacher:
     teacher_forcing_ratio = 1.
 else:
@@ -155,7 +156,9 @@ for epoch in range(1, args.epochs + 1):
     try:
         for index, dialog in enumerate(training_data):
             if args.ss:
-                teacher_forcing_ratio *= 0.99999
+                teacher_forcing_ratio = (teacher_lazy_period - epoch + 1) / teacher_lazy_period
+                if teacher_forcing_ratio < 0.5:
+                    teacher_forcing_ratio = 0.5
             training_loss += train(my_lang, criterion, teacher_forcing_ratio,\
                     dialog, encoder, decoder, \
                     encoder_optimizer, decoder_optimizer, max_length)

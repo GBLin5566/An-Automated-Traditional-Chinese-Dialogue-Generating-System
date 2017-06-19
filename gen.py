@@ -39,6 +39,8 @@ args = parser.parse_args()
 torch.manual_seed(args.seed)
 random.seed(args.seed)
 
+DEBUG = False
+
 if args.type != "hrnn" and args.type != "seq2seq":
     raise ValueError("args.type should be hrnn or seq2seq, but got %s" % (args.type))
 if args.beam <= 0:
@@ -150,7 +152,7 @@ else:
         encoder = encoder.cuda()
         decoder = decoder.cuda()
     def gen(sentence):
-        max_length = 16
+        max_length = 20
         encoder.eval()
         decoder.eval()
         talking_history = []
@@ -174,6 +176,8 @@ else:
                     encoder_outputs[ei] = encoder_output[0][0]
             decoder_hidden = encoder_hidden
             while True:
+                if DEBUG:
+                    print("[Debug] ", decoder_input.data)
                 gen_sentence.append(decoder_input.data[0][0])
                 if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) >= max_length - 1:
                     break
