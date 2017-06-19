@@ -29,7 +29,6 @@ def train(my_lang, criterion, teacher_forcing_ratio, \
         decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
         encoder_outputs = check_cuda_for_var(encoder_outputs)
         decoder_input = check_cuda_for_var(decoder_input)
-
         for ei in range(len(sentence)):
             encoder_output, encoder_hidden = encoder(sentence[ei], encoder_hidden)
             encoder_outputs[ei] = encoder_output[0][0]

@@ -72,6 +72,8 @@ parser.add_argument('--test', dest='test', action='store_true',
 parser.set_defaults(test=False)
 parser.add_argument('--limit', type=int, default=0,
         help='limit the size of whole data set')
+parser.add_argument('--startepoch', type=int, default=0,
+        help='epoch\'s number when starting(for scheduled sampling\'s ratio)')
 parser.add_argument('--restore', dest='restore', action='store_true',
         help='Reload the saved model')
 parser.set_defaults(restore=False)
@@ -115,12 +117,16 @@ if not args.restore:
     decoder = model.DecoderRNNSeq(args.decoder_hidden, len(my_lang.word2index), \
             args.decoder_layer, args.dropout, max_length)
 else:
+    print("Load last model in %s" % (args.save))
     number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
     encoder = torch.load(os.path.join(args.save, 'encoder'+str(number)+'.pt'))
     decoder = torch.load(os.path.join(args.save, 'decoder'+str(number)+'.pt'))
 if torch.cuda.is_available():
+    print("Make encoder & decoder cuda")
     encoder = encoder.cuda()
+    encoder.is_cuda = True
     decoder = decoder.cuda()
+    decoder.is_cuda = True
     criterion = criterion.cuda()
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
@@ -150,7 +156,7 @@ def save_loss(train, val):
     with open(os.path.join(args.save, "loss.json"), "w") as outfile:
         json.dump([train, val], outfile)
 
-for epoch in range(1, args.epochs + 1):
+for epoch in range(args.startepoch + 1, args.epochs + 1):
     training_loss = 0
     iter_since = time.time()
     try:
