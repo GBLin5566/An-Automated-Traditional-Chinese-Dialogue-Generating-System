@@ -10,6 +10,7 @@ import os
 import sys
 import random
 import pickle
+from math import exp
 
 import torch
 from torch.autograd import Variable
@@ -127,7 +128,7 @@ if args.type == "hrnn":
                         current_map[2].append(ni)
                         current_map[3] = tops[0][jndex] + index2state[index][3]
                         if args.eodlong == 1 and my_lang.word2index["EOD"] in current_map[2]:
-                            current_map[3] *= ((2*max_sentence_len - sentence_pointer) / max_sentence_len)
+                            current_map[3] *= exp(max_sentence_len - 12 - sentence_pointer)
                         current_scores.append(current_map[3])
 
                 _, top_of_beamsize2 = torch.FloatTensor(current_scores).topk(beam_size)
@@ -135,7 +136,10 @@ if args.type == "hrnn":
                 if current2state[top_of_beamsize2[0]][2][-1] == my_lang.word2index["EOS"]:
                     if args.nosr == 1 and current2state[top_of_beamsize2[0]][2] in talking_history:
                         # Don't repeat itself
+                        # Soft verion
                         current2state[top_of_beamsize2[0]][3] *= 2
+                        # Hard version
+                        #current2state[top_of_beamsize2[0][3]] *= 100000.0
                     else:
                         first_eos = current2state[top_of_beamsize2[0]][2].index(my_lang.word2index["EOS"])
                         gen_sentence = current2state[top_of_beamsize2[0]][2][:first_eos+1]
@@ -148,10 +152,12 @@ if args.type == "hrnn":
             talking_history.append(gen_sentence)
             gen_sentence = Variable(torch.LongTensor(gen_sentence))
             gen_sentence = check_cuda_for_var(gen_sentence)
-            # TODO input "訂餐廳" will get a error
-            string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
-            print(string)
-            if "EOD" in string:
+            try:
+                string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
+                print(string)
+                if "EOD" in string:
+                    break
+            except RuntimeError:
                 break
         return talking_history
 else:
