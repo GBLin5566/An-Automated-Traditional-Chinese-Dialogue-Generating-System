@@ -34,6 +34,10 @@ parser.add_argument('--seed', type=int, default=55665566,
         help='random seed')
 parser.add_argument('--beam', type=int, default=1,
         help='beam size for beam search(default 1 will be greedy search)')
+parser.add_argument('--eodlong', type=int, default=0,
+        help='whether force model to gen a longer dialog (1 for on, 0 for off, default = 0)')
+parser.add_argument('--nosr', type=int, default=0,
+        help='whether force model don\'t self repeat (1 for on, 0 for off, default = 0)')
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -72,7 +76,7 @@ if args.type == "hrnn":
         gen_sentence = []
         talking_history = []
         context_hidden = context.init_hidden()
-        max_dialog_len = 10
+        max_dialog_len = 20
         max_sentence_len = 15
         beam_size = args.beam
         for _ in range(max_dialog_len):
@@ -115,7 +119,6 @@ if args.type == "hrnn":
                             index2state[index][0], index2state[index][1])
                     tops, topi = output.data.topk(beam_size)
                     for jndex in range(beam_size):
-                        current_scores.append(tops[0][jndex] + index2state[index][3])
                         ni = topi[0][jndex]
                         current_map = current2state[index * beam_size + jndex]
                         current_map[0] = check_cuda_for_var(Variable(torch.LongTensor([[ni]])))
@@ -123,23 +126,31 @@ if args.type == "hrnn":
                         current_map[2] = index2state[index][2][:]
                         current_map[2].append(ni)
                         current_map[3] = tops[0][jndex] + index2state[index][3]
+                        if args.eodlong == 1 and my_lang.word2index["EOD"] in current_map[2]:
+                            current_map[3] *= ((2*max_sentence_len - sentence_pointer) / max_sentence_len)
+                        current_scores.append(current_map[3])
+
                 _, top_of_beamsize2 = torch.FloatTensor(current_scores).topk(beam_size)
                 # Top beam's output is eos, break and output the top beam
                 if current2state[top_of_beamsize2[0]][2][-1] == my_lang.word2index["EOS"]:
-                    first_eos = current2state[top_of_beamsize2[0]][2].index(my_lang.word2index["EOS"])
-                    gen_sentence = current2state[top_of_beamsize2[0]][2][:first_eos+1]
-                    break
+                    if args.nosr == 1 and current2state[top_of_beamsize2[0]][2] in talking_history:
+                        # Don't repeat itself
+                        current2state[top_of_beamsize2[0]][3] *= 2
+                    else:
+                        first_eos = current2state[top_of_beamsize2[0]][2].index(my_lang.word2index["EOS"])
+                        gen_sentence = current2state[top_of_beamsize2[0]][2][:first_eos+1]
+                        break
                 after_beam_dict = {}
                 for index, candidate in enumerate(top_of_beamsize2):
                     after_beam_dict[index] = current2state[candidate]
                 index2state = after_beam_dict
             # Beam Search a good sentence and assign to gen_sentence
+            talking_history.append(gen_sentence)
             gen_sentence = Variable(torch.LongTensor(gen_sentence))
             gen_sentence = check_cuda_for_var(gen_sentence)
             # TODO input "訂餐廳" will get a error
             string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
             print(string)
-            talking_history.append(string)
             if "EOD" in string:
                 break
         return talking_history
