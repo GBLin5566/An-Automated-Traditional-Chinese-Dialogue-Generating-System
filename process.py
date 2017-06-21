@@ -65,7 +65,7 @@ print("Training data for doc2vec")
 gensim_train = []
 for train_dialog in training_data:
     doc = []
-    for sentence in train_dialog:
+    for sentence in train_dialog[:-1]:
         doc += sentence
     gensim_train.append(doc)
 np.save("label/gensim_train.npy", gensim_train)
@@ -78,7 +78,8 @@ for train_dialog in training_data:
     doc = []
     dialog = []
     for sentence in train_dialog:
-        doc += sentence
+        if not sentence == train_dialog[-1]:
+            doc += sentence
         if len(sentence) > 1:
             dialog.append(my_lang.index2sentence(sentence[:-1]))
     dialog2vec.append(dialog[:-1])
@@ -86,7 +87,7 @@ for train_dialog in training_data:
     label.append(1)
     doc = []
     dialog = []
-    for sentence in train_dialog[:random.randint(1, len(train_dialog)-1)]:
+    for sentence in train_dialog[:random.randint(1, len(train_dialog)-2)]:
         doc += sentence
         if len(sentence) > 1:
             dialog.append(my_lang.index2sentence(sentence[:-1]))
@@ -107,7 +108,8 @@ for validate_dialog in validation_data:
     doc = []
     dialog = []
     for sentence in validate_dialog:
-        doc += sentence
+        if not sentence == train_dialog[-1]:
+            doc += sentence
         if len(sentence) > 1:
             dialog.append(my_lang.index2sentence(sentence[:-1]))
     dialog2vec.append(dialog[:-1])
@@ -115,7 +117,7 @@ for validate_dialog in validation_data:
     label.append(1)
     doc = []
     dialog = []
-    for sentence in validate_dialog[:random.randint(1, len(validate_dialog)-1)]:
+    for sentence in validate_dialog[:random.randint(1, len(validate_dialog)-2)]:
         doc += sentence
         if len(sentence) > 1:
             dialog.append(my_lang.index2sentence(sentence[:-1]))

@@ -16,7 +16,7 @@ for i, text in enumerate(document):
 #model = doc2vec.Doc2Vec(docs, size = 500,  window = 300, min_count = 1, workers = 4)
 model = doc2vec.Doc2Vec.load("gensim.model")
 
-for epoch in range(10000):
+for epoch in range(100):
     if epoch % 1000 == 0 and not epoch == 0:
         model.save("gensim.model")
     print("epoch %s" % epoch)

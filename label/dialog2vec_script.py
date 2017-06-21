@@ -13,4 +13,5 @@ test_y = np.load("test_label.npy")
 model = linear_model.LogisticRegression()
 model.fit(train_x, train_y)
 
-print("Dialog2vector score: ", model.score(test_x, test_y))
+print("Dialog2vector train score: ", model.score(train_x, train_y))
+print("Dialog2vector test score: ", model.score(test_x, test_y))
