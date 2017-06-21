@@ -39,6 +39,10 @@ parser.add_argument('--eodlong', type=int, default=0,
         help='whether force model to gen a longer dialog (1 for on, 0 for off, default = 0)')
 parser.add_argument('--nosr', type=int, default=0,
         help='whether force model don\'t self repeat (1 for on, 0 for off, default = 0)')
+parser.add_argument('--number', type=int, default=0,
+        help='model number to restore')
+parser.add_argument('--sbs', type=int, default=0,
+        help='Generate sentence by sentence (1 for on, 0 for off, default = 0)')
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -60,7 +64,10 @@ else:
         my_lang = pickle.load(filename)
 if args.type == "hrnn":
     # Load last HRNN model
-    number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
+    if args.number == 0:
+        number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
+    else:
+        number = args.number
     encoder = torch.load(os.path.join(args.save, 'encoder'+str(number)+'.pt'))
     context = torch.load(os.path.join(args.save, 'context'+str(number)+'.pt'))
     decoder = torch.load(os.path.join(args.save, 'decoder'+str(number)+'.pt'))
@@ -160,6 +167,114 @@ if args.type == "hrnn":
             except RuntimeError:
                 break
         return talking_history
+    def genSbyS():
+        try:
+            encoder.eval()
+            context.eval()
+            decoder.eval()
+
+            context_hidden = context.init_hidden()
+            max_sentence_len = 15
+            beam_size = args.beam
+            talking_history = []
+
+            while True:
+                start = input("[%s] >>> " % (args.type.upper()))
+                if start == 'reset':
+                    context_hidden = context.init_hidden()
+                    talking_history = []
+                    continue
+                clean_sentence = clean(start)
+                clean_sentence_idx = my_lang.sentence2index(clean_sentence)
+                if len(clean_sentence_idx) == 0:
+                    continue
+                clean_sentence_idx = Variable(torch.LongTensor(clean_sentence_idx))
+                clean_sentence_idx = check_cuda_for_var(clean_sentence_idx)
+                sentence = clean_sentence_idx
+                
+                decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
+                decoder_input = check_cuda_for_var(decoder_input)
+                encoder_hidden = encoder.init_hidden()
+                decoder_hidden = decoder.init_hidden()
+                
+                for ei in range(len(sentence)):
+                    _, encoder_hidden = encoder(sentence[ei], encoder_hidden)
+                
+                context_output, context_hidden = context(encoder_hidden, context_hidden)
+                # Beam search
+                index2state = {}
+                for index in range(beam_size):
+                    index2state[index] = [decoder_input, decoder_hidden, [decoder_input.data[0][0]], 0.0]
+                # One step to get beam_size candidates
+                decoder_output, decoder_hidden = decoder(context_hidden,\
+                        decoder_input, decoder_hidden)
+                scores, topi = decoder_output.data.topk(beam_size)
+                for index in range(beam_size):
+                    ni = topi[0][index]
+                    index2state[index][0] = check_cuda_for_var(Variable(torch.LongTensor([[ni]])))
+                    index2state[index][1] = decoder_hidden
+                    index2state[index][2].append(ni)
+                    index2state[index][3] = scores[0][index]
+                for sentence_pointer in range(max_sentence_len):
+                    current_scores = []
+                    current2state = {}
+                    # Init current2state
+                    for index in range(beam_size):
+                        for jndex in range(beam_size):
+                            current2state[index * beam_size + jndex] = [0, 0, 0, 0]
+                    for index in range(beam_size):
+                        output, hidden = decoder(context_hidden, \
+                                index2state[index][0], index2state[index][1])
+                        tops, topi = output.data.topk(beam_size)
+                        for jndex in range(beam_size):
+                            ni = topi[0][jndex]
+                            current_map = current2state[index * beam_size + jndex]
+                            current_map[0] = check_cuda_for_var(Variable(torch.LongTensor([[ni]])))
+                            current_map[1] = hidden
+                            current_map[2] = index2state[index][2][:]
+                            current_map[2].append(ni)
+                            current_map[3] = tops[0][jndex] + index2state[index][3]
+                            if args.eodlong == 1 and my_lang.word2index["EOD"] in current_map[2]:
+                                current_map[3] *= exp(max_sentence_len - 12 - sentence_pointer)
+                            current_scores.append(current_map[3])
+
+                    _, top_of_beamsize2 = torch.FloatTensor(current_scores).topk(beam_size)
+                    # Top beam's output is eos, break and output the top beam
+                    if current2state[top_of_beamsize2[0]][2][-1] == my_lang.word2index["EOS"]:
+                        if args.nosr == 1 and current2state[top_of_beamsize2[0]][2] in talking_history:
+                            # Don't repeat itself
+                            # Soft verion
+                            current2state[top_of_beamsize2[0]][3] *= 2
+                            # Hard version
+                            #current2state[top_of_beamsize2[0][3]] *= 100000.0
+                        else:
+                            first_eos = current2state[top_of_beamsize2[0]][2].index(my_lang.word2index["EOS"])
+                            gen_sentence = current2state[top_of_beamsize2[0]][2][:first_eos+1]
+                            break
+                    after_beam_dict = {}
+                    for index, candidate in enumerate(top_of_beamsize2):
+                        after_beam_dict[index] = current2state[candidate]
+                    index2state = after_beam_dict
+                # Beam Search a good sentence and assign to gen_sentence
+                talking_history.append(gen_sentence)
+                gen_sentence = Variable(torch.LongTensor(gen_sentence))
+                gen_sentence = check_cuda_for_var(gen_sentence)
+                string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
+                print(string)
+                if "EOD" in string:
+                    break
+
+                decoder_input = Variable(torch.LongTensor([[my_lang.word2index["SOS"]]]))
+                decoder_input = check_cuda_for_var(decoder_input)
+                encoder_hidden = encoder.init_hidden()
+                decoder_hidden = decoder.init_hidden()
+                
+                for ei in range(len(gen_sentence)):
+                    _, encoder_hidden = encoder(gen_sentence[ei], encoder_hidden)
+                
+                context_output, context_hidden = context(encoder_hidden, context_hidden)
+        except KeyboardInterrupt:
+            print()
 else:
     # Load last Seq2seq model
     number = torch.load(os.path.join(args.save, 'checkpoint.pt'))
@@ -215,12 +330,15 @@ else:
         return talking_history
 # Generating string
 try:
-    while True:
-        start = input("[%s] >>> " % (args.type.upper()))
-        clean_sentence = clean(start)
-        clean_sentence_idx = my_lang.sentence2index(clean_sentence)
-        clean_sentence_idx = Variable(torch.LongTensor(clean_sentence_idx))
-        clean_sentence_idx = check_cuda_for_var(clean_sentence_idx)
-        gen(clean_sentence_idx)
+    if args.sbs == 0:
+        while True:
+            start = input("[%s] >>> " % (args.type.upper()))
+            clean_sentence = clean(start)
+            clean_sentence_idx = my_lang.sentence2index(clean_sentence)
+            clean_sentence_idx = Variable(torch.LongTensor(clean_sentence_idx))
+            clean_sentence_idx = check_cuda_for_var(clean_sentence_idx)
+            gen(clean_sentence_idx)
+    else:
+        genSbyS()
 except KeyboardInterrupt:
     print()
