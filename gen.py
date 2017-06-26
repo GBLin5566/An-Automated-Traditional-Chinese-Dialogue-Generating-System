@@ -324,13 +324,13 @@ else:
             string = ' '.join([my_lang.index2word[word.data[0]] for word in gen_sentence])
             print(string)
             talking_history.append(string)
-            if "EOD" in string:
+            if "EOD" in string or args.sbs:
                 break
             counter += 1
         return talking_history
 # Generating string
 try:
-    if args.sbs == 0:
+    if args.sbs == 0 or args.type == 'seq2seq':
         while True:
             start = input("[%s] >>> " % (args.type.upper()))
             clean_sentence = clean(start)

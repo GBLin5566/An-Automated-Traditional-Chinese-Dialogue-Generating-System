@@ -11,5 +11,8 @@ test_y = np.load("test_label.npy")
 model = linear_model.LogisticRegression()
 model.fit(train_x, train_y)
 
+print("len of train_x ", np.sum(np.linalg.norm(train_x, axis=1))/len(train_x))
+print("len of test_x ", np.sum(np.linalg.norm(test_x, axis=1))/len(test_x))
+
 print("Gensim train score: ", model.score(train_x, train_y))
 print("Gensim test score: ", model.score(test_x, test_y))
