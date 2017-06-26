@@ -307,11 +307,11 @@ else:
                     encoder_output, encoder_hidden = encoder(sentence[ei], encoder_hidden)
                     encoder_outputs[ei] = encoder_output[0][0]
             decoder_hidden = encoder_hidden
-            while True:
+            while len(gen_sentence) < max_length - 1:
                 if DEBUG:
                     print("[Debug] ", decoder_input.data)
                 gen_sentence.append(decoder_input.data[0][0])
-                if gen_sentence[-1] == my_lang.word2index["EOS"] or len(gen_sentence) >= max_length - 1:
+                if gen_sentence[-1] == my_lang.word2index["EOS"]:
                     break
                 decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, \
                         encoder_outputs)
